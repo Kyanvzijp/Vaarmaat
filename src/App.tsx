@@ -217,7 +217,7 @@ export default function App() {
     }
   }, [gps, navigating, route, profile.speed, profile.height, profile.margin, settings.prepMinutes]);
 
-  const useMyLocation = (i: number) => {
+  const pickMyLocation = (i: number) => {
     startGps();
     const apply = (pos: LatLng) => setWp(i, { name: 'Mijn locatie', detail: 'GPS', point: pos, kind: 'gps' });
     if (gps) apply(gps.pos);
@@ -370,7 +370,7 @@ export default function App() {
                   placeholder={i === 0 ? 'Vertrekpunt (bijv. Kaag)' : i === waypoints.length - 1 ? 'Bestemming (bijv. Leiden)' : 'Tussenpunt'}
                   value={w}
                   onSelect={(p) => setWp(i, p)}
-                  onUseGps={() => useMyLocation(i)}
+                  onUseGps={() => pickMyLocation(i)}
                   onPickOnMap={() => setPicking(i)}
                   picking={picking === i}
                 />

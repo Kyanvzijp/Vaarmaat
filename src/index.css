@@ -1,16 +1,28 @@
 @import 'leaflet/dist/leaflet.css';
 
 :root {
+  /* Kleurtokens uit docs/STYLEGUIDE.md hoofdstuk 2. Nieuwe kleuren alleen hier, nooit in componenten. */
   --blue: #0a66ff;
   --blue-dark: #0747b3;
+  --blue-soft: #eef3ff;
   --ink: #12203a;
   --muted: #5d6b85;
-  --bg: #ffffff;
   --line: #e3e8f0;
+  --surface: #ffffff;
+  --bg: var(--surface);
+  --canvas: #f2f5fa;
+  --water: #dfe9f5;
+  --starboard: #0a8f5b;
+  --port: #d33b3b;
+  --movable: #e08a00;
+  --lock: #8a2be2;
+  --track: #ff5a1f;
   --warn-bg: #fff4e0;
   --warn: #8a5300;
   --err-bg: #ffe8e8;
   --err: #a02020;
+  --ok-bg: #e3f7ea;
+  --ok: #0a6b43;
   --shadow: 0 6px 24px rgba(10, 30, 70, 0.18);
   --radius: 16px;
   font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -19,7 +31,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { background: #dfe9f5; overscroll-behavior: none; }
+body { background: var(--water); overscroll-behavior: none; }
 button { font: inherit; cursor: pointer; }
 input { font: inherit; }
 
@@ -300,3 +312,13 @@ button.danger { background: #ffe8e8 !important; color: var(--err) !important; bo
   .overlay { left: 0; right: auto; width: 560px; box-shadow: var(--shadow); }
   .approach { left: 12px; right: auto; width: 520px; top: 140px; }
 }
+
+/* Gate voor Plus-inhoud (styleguide 5) */
+.gate { display: flex; gap: 12px; background: var(--blue-soft); border-radius: 12px; padding: 14px; margin: 12px 0; }
+.gate-icon { width: 30px; height: 30px; border-radius: 50%; background: var(--blue); color: #fff; display: grid; place-items: center; font-size: 16px; flex: none; }
+.gate-body { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.gate-body b { font-size: 15px; }
+.gate-body p { margin: 0; font-size: 14px; line-height: 20px; }
+.gate-body button.primary { background: var(--blue); color: #fff; border: 0; border-radius: 12px; padding: 12px; font-weight: 600; font-size: 13px; width: 100%; min-height: 44px; }
+.gate-body button.primary:hover { background: var(--blue-dark); }
+.gate-body button.link { background: transparent; border: 0; color: var(--blue-dark); font-size: 13px; font-weight: 600; text-decoration: underline; padding: 6px; }

@@ -1,11 +1,14 @@
+import fs from 'node:fs';
 import { chromium } from 'playwright';
+const dir = process.env.OUT || 'screenshots';
+fs.mkdirSync(dir, { recursive: true });
 const b = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
 const ctx = await b.newContext({ viewport: { width: 420, height: 820 }, deviceScaleFactor: 2, locale: 'nl-NL', geolocation: { latitude: 52.2166, longitude: 4.5934 }, permissions: ['geolocation'] });
 const p = await ctx.newPage();
 const errors = [];
 p.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p.on('console', m => { if (m.type() === 'error' && !m.text().includes('ERR_')) errors.push('console: ' + m.text()); });
-const shot = (n) => p.screenshot({ path: `/tmp/s_${n}.png` });
+const shot = (n) => p.screenshot({ path: `${dir}/${n}.png` });
 await p.goto('http://127.0.0.1:4173/');
 await p.waitForTimeout(2500);
 await shot('01_start');

@@ -23,14 +23,34 @@ Wat de app doet:
 
 ```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:8080
 ```
 
-## Deployen op Netlify
+Node 22 (zie `.nvmrc`). Zonder `.env` draait de app volledig als gast met opslag in de browser. Wil je de backend lokaal testen, kopieer dan `.env.example` naar `.env` en vul de Supabase-waarden in.
 
-Optie 1, drag and drop: `npm run build` en sleep de map `dist` naar https://app.netlify.com/drop.
+Controles die groen moeten blijven:
 
-Optie 2, via Git: push deze map naar GitHub en koppel de repo in Netlify. `netlify.toml` staat al klaar (build `npm run build`, publish `dist`, SPA redirect).
+```bash
+npm run build        # TypeScript strict en Vite
+npm run lint         # oxlint
+npm run test:routes  # bekende routes (Kaag naar Leiden, Alphen naar Amsterdam, ...)
+npm run preview & npm run screenshot   # schermafbeeldingen op telefoon en desktop, geen console-errors
+```
+
+## Backend, accounts en Vaarmaat Plus
+
+De frontend werkt zonder backend. Accounts, synchronisatie, het Plus-abonnement, feeds en reserveren worden gebouwd op Supabase (Lovable Cloud). Wat er klaarstaat:
+
+- `supabase/migrations/` met het databaseschema en Row Level Security.
+- `src/integrations/supabase/` met de client (null zonder configuratie) en de databasetypes.
+- `src/backend/` met inloggen via magic link, synchronisatie van tochten, logboek, favorieten, lesvoortgang en profiel, en de Plus-status.
+- `src/components/PlusGate.tsx` en `src/analytics.ts`.
+
+Lees `docs/LOVABLE.md` (stappenplan en projectkennis voor Lovable), `docs/BACKEND.md` (contracten van tabellen, functies en feeds) en `docs/APPSTORE.md` (de latere overstap naar de App Store en Google Play).
+
+## Deployen
+
+Lovable publiceert zelf, of gebruik Netlify: koppel de repo, `netlify.toml` staat klaar (Node 22, build `npm run build`, publish `dist`, SPA redirect). Zet dezelfde `VITE_`-variabelen als in `.env.example` in de omgeving van Netlify. Drag and drop kan ook: `npm run build` en sleep `dist` naar https://app.netlify.com/drop.
 
 GPS werkt alleen via https; Netlify regelt dat automatisch.
 
@@ -68,7 +88,10 @@ src/
   voice.ts           gesproken instructies
   weather.ts         Open-Meteo en vaaradvies
   pois.ts            havens en voorzieningen
-  store.ts           opslag van tochten, logboek, checklists, instellingen
+  store.ts           opslag van tochten, logboek, checklists, instellingen (localStorage)
+  analytics.ts       privacyvriendelijke events (Plausible of Umami)
+  backend/           auth (magic link), sync met Supabase, Plus-status
+  integrations/supabase/  client en databasetypes (pad van Lovable Cloud)
   graph.ts           graaf, ruimtelijke index, snappen van punten op het water
   geocode.ts         bekende bestemmingen en Nominatim zoeken
   profile.ts         boottypes en opslag van het profiel
@@ -76,6 +99,9 @@ scripts/
   fetch_osm.mjs      vaarwegen ophalen          build_graph.py  graaf bouwen
   fetch_pois.mjs     havens en bediening ophalen build_pois.py  POI's bouwen en bedieningsinfo koppelen
   test_route.ts      routes controleren in de terminal
+  screenshot.mjs     schermafbeeldingen met Playwright      icons.mjs       PNG-iconen uit de SVG
+supabase/migrations/    databaseschema met RLS
+docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md
 public/data/graph.json  voorberekende vaarwegengraaf
 public/data/pois.json   havens, aanlegplaatsen, voorzieningen, verboden
 ```

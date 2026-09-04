@@ -1,13 +1,17 @@
+import path from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Poort 8080 en de alias "@" volgen de conventies van Lovable, zodat de repo daar direct werkt.
 export default defineConfig({
+  server: { host: true, port: 8080 },
+  resolve: { alias: { '@': path.resolve(import.meta.dirname, './src') } },
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icon-512.svg'],
+      includeAssets: ['favicon.svg', 'icon-512.svg', 'icons/*.png'],
       manifest: {
         name: 'Vaarmaat',
         short_name: 'Vaarmaat',
@@ -17,7 +21,12 @@ export default defineConfig({
         display: 'standalone',
         background_color: '#dfe9f5',
         theme_color: '#0a66ff',
-        icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+        icons: [
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,json,woff2}'],

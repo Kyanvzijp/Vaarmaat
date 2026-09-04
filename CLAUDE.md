@@ -9,8 +9,10 @@ Vaarmaat is een web app (PWA) voor de pleziervaart in Nederland: routeplanner, n
 - Geen streepjes als leesteken in UI-teksten (geen en-dash of em-dash); gebruik een punt, komma of dubbele punt.
 - Data staat voorberekend in `public/data/*.json`; de browser rekent alles zelf (geen routing-API). Scripts in `scripts/` maken de data: `fetch_osm.mjs` → `build_graph.py`, `fetch_pois.mjs` → `build_pois.py`. Wijzig het dataformaat alleen samen met `src/types.ts` en de build scripts.
 - Routering leeft in `src/routing.ts` (A*, kostenfunctie `evalEdge`, alternatieven, afslagen). Nieuwe beperkingen of tijdsafhankelijke kosten horen in `evalEdge`, niet in de UI.
-- State: `App.tsx` is de enige eigenaar van planner- en navigatiestate; panelen zijn presentational. Opslag via `src/store.ts` (localStorage, later Supabase).
-- Build moet altijd slagen: `npm run build` (tsc strict + vite). Draai `npx tsx scripts/test_route.ts` na wijzigingen aan routing of data; de bekende routes (Kaag → Leiden 12 tot 13 km, Alphen → Amsterdam ongeveer 42 km) moeten blijven werken.
+- State: `App.tsx` is de enige eigenaar van planner- en navigatiestate; panelen zijn presentational. Opslag via `src/store.ts` (localStorage) en `src/backend/sync.ts` (Supabase, alleen ingelogd).
+- Backend: Supabase via Lovable Cloud. Client en types in `src/integrations/supabase/` (Lovable genereert die opnieuw), eigen laag in `src/backend/` (auth, sync, subscription). Schema alleen wijzigen via een nieuw bestand in `supabase/migrations/` met RLS. Zonder `VITE_SUPABASE_*` is de client `null` en moet alles als gast blijven werken. Contracten in `docs/BACKEND.md`, stappenplan in `docs/LOVABLE.md`.
+- Importpad `@/` wijst naar `src/`. Vite draait op poort 8080 (conventie van Lovable).
+- Build moet altijd slagen: `npm run build` (tsc strict + vite) en `npm run lint`. Draai `npm run test:routes` na wijzigingen aan routing of data; de bekende routes (Kaag → Leiden 12 tot 13 km, Alphen → Amsterdam ongeveer 42 km) moeten blijven werken.
 - Deploy: Netlify, `netlify.toml` staat klaar. GPS en spraak werken alleen via https.
 - Veiligheidsinhoud (noodnummers, bruglichten, korte checklists) is altijd gratis en offline; zet nooit een betaalmuur voor iets wat iemand op het water direct nodig heeft.
 
