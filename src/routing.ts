@@ -1,6 +1,6 @@
-import type { Graph } from './graph';
+import type { Graph, Snap } from './graph';
 import type { BoatProfile, LatLng, RouteResult, RouteStep } from './types';
-import { bearing, turnAngle, formatHeight, fastDist } from './geo';
+import { bearing, turnAngle, formatHeight, fastDist, projectOnSegment } from './geo';
 
 /** Eenvoudige binaire min-heap op (cost, node) */
 class Heap {
@@ -45,25 +45,53 @@ class Heap {
   }
 }
 
+/**
+ * Realistische tijden. De kruissnelheid uit het profiel is wat je op open water haalt; in de praktijk
+ * vaar je langzamer door bochten, wind, ander verkeer en langs steigers. Een vaste brug kost tijd om
+ * rustig onderdoor te gaan, bij een sluis wacht je eerst aan het remmingwerk voordat je schut.
+ */
+export const REALISM = {
+  /** deel van de kruissnelheid dat je gemiddeld haalt */
+  efficiency: 0.9,
+  /** seconden per vaste brug (vaart minderen, uitlijnen) */
+  fixedBridge: 30,
+  /** seconden per brug met onbekende hoogte (onzekerheid) */
+  unknownBridge: 45,
+  /** seconden extra per beweegbare brug die laag (< 1 m) of naamloos is: vaak zelfbediening of op afspraak */
+  smallMovableExtra: 300,
+  /** seconden aanmeren en wachten voor een sluis, boven op de schuttijd uit het profiel */
+  lockApproach: 300,
+};
+
 export interface EdgeEval {
-  /** seconden, of Infinity als niet bevaarbaar */
+  /** kosten voor de routekeuze (seconden maal voorkeursfactor), of Infinity als niet bevaarbaar */
   cost: number;
+  /** zuivere vaartijd in seconden */
+  time: number;
+  /** wachten en schutten in seconden */
+  wait: number;
   blockedReason?: string;
 }
+
+const BLOCKED = (reason: string): EdgeEval => ({ cost: Infinity, time: Infinity, wait: 0, blockedReason: reason });
 
 /** Kosten (in seconden) om een edge te bevaren met dit bootprofiel */
 export function evalEdge(g: Graph, edge: number, p: BoatProfile): EdgeEval {
   const way = g.wayOf(edge);
-  if (way.nb) return { cost: Infinity, blockedReason: 'vaarverbod' };
-  if (way.nm && p.type !== 'kano') return { cost: Infinity, blockedReason: 'verboden voor motorboten' };
-  if (way.d != null && p.draft > way.d) return { cost: Infinity, blockedReason: `te ondiep (max ${formatHeight(way.d)})` };
-  if (way.w != null && p.width > way.w) return { cost: Infinity, blockedReason: `te smal (max ${formatHeight(way.w)})` };
-  if (way.h != null && p.height + p.margin > way.h) return { cost: Infinity, blockedReason: `doorvaarthoogte ${formatHeight(way.h)}` };
+  const wayIdx = g.edges[edge][3];
+  if (way.nb) return BLOCKED('vaarverbod');
+  if (way.nm && p.type !== 'kano') return BLOCKED('verboden voor motorboten');
+  if (way.d != null && p.draft > way.d) return BLOCKED(`te ondiep (max ${formatHeight(way.d)})`);
+  if (way.w != null && p.width > way.w) return BLOCKED(`te smal (max ${formatHeight(way.w)})`);
+  if (way.h != null && p.height + p.margin > way.h) return BLOCKED(`doorvaarthoogte ${formatHeight(way.h)}`);
 
   let speed = p.speed;
   if (way.s != null && way.s < speed) speed = way.s;
-  if (speed <= 0) speed = 1;
-  let cost = (g.edgeLength(edge) / 1000 / speed) * 3600;
+  const cap = g.wayCap[wayIdx];
+  if (cap > 0 && cap < speed) speed = cap;
+  speed = Math.max(speed * REALISM.efficiency, 1);
+  let time = (g.edgeLength(edge) / 1000 / speed) * 3600;
+  let wait = 0;
 
   const bridges = g.edgeBridges.get(edge);
   if (bridges) {
@@ -71,57 +99,101 @@ export function evalEdge(g: Graph, edge: number, p: BoatProfile): EdgeEval {
       const b = g.data.bridges[bi];
       if (b.h == null) {
         if (b.m) {
-          if (!p.allowMovable) return { cost: Infinity, blockedReason: `beweegbare brug ${b.n ?? ''}`.trim() };
-          cost += p.bridgeWait * 60;
+          if (!p.allowMovable) return BLOCKED(`beweegbare brug ${b.n ?? ''}`.trim());
+          wait += p.bridgeWait * 60 + (b.n ? 0 : REALISM.smallMovableExtra);
         } else if (p.avoidUnknownBridges) {
-          return { cost: Infinity, blockedReason: `brug met onbekende hoogte ${b.n ?? ''}`.trim() };
+          return BLOCKED(`brug met onbekende hoogte ${b.n ?? ''}`.trim());
         } else {
-          cost += 20; // kleine onzekerheidsstraf
+          time += REALISM.unknownBridge;
         }
         continue;
       }
-      if (p.height + p.margin <= b.h) continue; // past eronder
+      if (p.height + p.margin <= b.h) {
+        time += REALISM.fixedBridge;
+        continue;
+      }
       if (b.m && p.allowMovable) {
-        cost += p.bridgeWait * 60;
+        wait += p.bridgeWait * 60 + (b.h < 1.0 || !b.n ? REALISM.smallMovableExtra : 0);
       } else {
-        return { cost: Infinity, blockedReason: `${b.n ?? 'brug'} te laag (${formatHeight(b.h)})` };
+        return BLOCKED(`${b.n ?? 'brug'} te laag (${formatHeight(b.h)})`);
       }
     }
   }
   const locks = g.edgeLocks.get(edge);
-  if (locks) cost += locks.length * p.lockWait * 60;
-  return { cost };
+  if (locks) wait += locks.length * (p.lockWait * 60 + REALISM.lockApproach);
+  return { cost: (time + wait) * g.wayFactor[wayIdx], time, wait };
+}
+
+/** Begin- of eindpunt van een zoektocht: een knoop plus de kosten van het stukje edge tot het geprojecteerde punt */
+interface Terminal {
+  node: number;
+  cost: number;
+  time: number;
+  wait: number;
+  /** lengte van het stukje edge (m) */
+  len: number;
+}
+
+/** Beide eindknopen van de edge waarop het punt ligt, met de kosten van het deel tot het punt */
+function terminals(g: Graph, snap: Snap | undefined, node: number, p: BoatProfile): Terminal[] {
+  if (!snap) return [{ node, cost: 0, time: 0, wait: 0, len: 0 }];
+  const e = g.edges[snap.edge];
+  const ev = evalEdge(g, snap.edge, p);
+  if (!isFinite(ev.cost)) return [{ node: snap.node, cost: 0, time: 0, wait: 0, len: 0 }];
+  const out: Terminal[] = [];
+  for (const [n, frac] of [
+    [e[0], snap.t],
+    [e[1], 1 - snap.t],
+  ] as [number, number][]) {
+    out.push({ node: n, cost: ev.cost * frac, time: ev.time * frac, wait: ev.wait * frac, len: e[2] * frac });
+  }
+  return out;
 }
 
 interface DijkstraResult {
   nodes: number[];
   edges: number[];
   cost: number;
+  start: Terminal;
+  end: Terminal;
 }
 
-function dijkstra(g: Graph, from: number, to: number, p: BoatProfile, penalty?: Map<number, number>): DijkstraResult | null {
+function dijkstra(g: Graph, sources: Terminal[], targets: Terminal[], goal: LatLng, p: BoatProfile, penalty?: Map<number, number>): DijkstraResult | null {
   const n = g.nodes.length;
   const dist = new Float64Array(n).fill(Infinity);
   const prevNode = new Int32Array(n).fill(-1);
   const prevEdge = new Int32Array(n).fill(-1);
   const done = new Uint8Array(n);
   const heap = new Heap();
-  dist[from] = 0;
-  heap.push(0, from);
-  // A* heuristiek: rechte lijn / max snelheid
-  const target = g.nodes[to];
+  // A* heuristiek: rechte lijn naar het doel op kruissnelheid (altijd sneller dan de werkelijkheid, dus toelaatbaar)
   const hs = (Math.max(p.speed, 1) / 3.6) * 1.05;
   const h = (node: number) => {
     const a = g.nodes[node];
-    const x = (target[1] - a[1]) * 111320 * Math.cos((a[0] * Math.PI) / 180);
-    const y = (target[0] - a[0]) * 110540;
+    const x = (goal[1] - a[1]) * 111320 * Math.cos((a[0] * Math.PI) / 180);
+    const y = (goal[0] - a[0]) * 110540;
     return Math.sqrt(x * x + y * y) / hs;
   };
+  const startOf = new Map<number, Terminal>();
+  for (const s of sources) {
+    if (s.cost < dist[s.node]) {
+      dist[s.node] = s.cost;
+      startOf.set(s.node, s);
+      heap.push(s.cost + h(s.node), s.node);
+    }
+  }
+  const targetOf = new Map<number, Terminal>();
+  for (const t of targets) if (!targetOf.has(t.node) || t.cost < targetOf.get(t.node)!.cost) targetOf.set(t.node, t);
+  let best: { node: number; total: number } | null = null;
   while (heap.size) {
-    const [, u] = heap.pop()!;
+    const [key, u] = heap.pop()!;
+    if (best && key >= best.total) break;
     if (done[u]) continue;
     done[u] = 1;
-    if (u === to) break;
+    const tgt = targetOf.get(u);
+    if (tgt) {
+      const total = dist[u] + tgt.cost;
+      if (!best || total < best.total) best = { node: u, total };
+    }
     const adj = g.adj[u];
     for (let i = 0; i < adj.length; i++) {
       const ei = adj[i];
@@ -143,19 +215,26 @@ function dijkstra(g: Graph, from: number, to: number, p: BoatProfile, penalty?: 
       }
     }
   }
-  if (!isFinite(dist[to])) return null;
+  if (!best) return null;
   const nodes: number[] = [];
   const edges: number[] = [];
-  let cur = to;
-  while (cur !== from) {
+  let cur = best.node;
+  while (prevNode[cur] !== -1) {
     nodes.push(cur);
     edges.push(prevEdge[cur]);
     cur = prevNode[cur];
   }
-  nodes.push(from);
+  nodes.push(cur);
   nodes.reverse();
   edges.reverse();
-  return { nodes, edges, cost: dist[to] };
+  return { nodes, edges, cost: best.total, start: startOf.get(cur)!, end: targetOf.get(best.node)! };
+}
+
+/** Positie van een object op een edge, gemeten in de vaarrichting (0..1) */
+function fracOnEdge(g: Graph, edge: number, fromNode: number, point: LatLng): number {
+  const e = g.edges[edge];
+  const [t] = projectOnSegment(point, g.nodes[e[0]], g.nodes[e[1]]);
+  return fromNode === e[0] ? t : 1 - t;
 }
 
 function buildResult(g: Graph, r: DijkstraResult, p: BoatProfile, id: number, label: string, fromPoint?: LatLng, toPoint?: LatLng): RouteResult {
@@ -167,19 +246,25 @@ function buildResult(g: Graph, r: DijkstraResult, p: BoatProfile, id: number, la
     cum.push(distance);
   }
   // werkelijke reistijd zonder penalty-factoren
-  let duration = 0;
-  for (const e of r.edges) duration += evalEdge(g, e, p).cost;
+  let sailTime = 0;
+  let waitTime = 0;
+  for (const e of r.edges) {
+    const ev = evalEdge(g, e, p);
+    sailTime += ev.time;
+    waitTime += ev.wait;
+  }
 
   const bridges: RouteResult['bridges'] = [];
   const locks: RouteResult['locks'] = [];
   let lowest: number | null = null;
   let unknown = 0;
   r.edges.forEach((e, i) => {
+    const len = g.edgeLength(e);
     const bl = g.edgeBridges.get(e);
     if (bl)
       for (const bi of bl) {
         const b = g.data.bridges[bi];
-        bridges.push({ name: b.n, height: b.h, movable: !!b.m, at: cum[i] + g.edgeLength(e) / 2, point: b.p, ops: b.o });
+        bridges.push({ name: b.n, height: b.h, movable: !!b.m, at: cum[i] + fracOnEdge(g, e, r.nodes[i], b.p) * len, point: b.p, ops: b.o });
         if (b.h == null) unknown++;
         else if (lowest == null || b.h < lowest) lowest = b.h;
       }
@@ -187,9 +272,11 @@ function buildResult(g: Graph, r: DijkstraResult, p: BoatProfile, id: number, la
     if (ll)
       for (const li of ll) {
         const l = g.data.locks[li];
-        locks.push({ name: l.n, at: cum[i] + g.edgeLength(e) / 2, point: l.p, ops: l.o });
+        locks.push({ name: l.n, at: cum[i] + fracOnEdge(g, e, r.nodes[i], l.p) * len, point: l.p, ops: l.o });
       }
   });
+  bridges.sort((a, b) => a.at - b.at);
+  locks.sort((a, b) => a.at - b.at);
 
   const waterways: string[] = [];
   for (const e of r.edges) {
@@ -201,30 +288,50 @@ function buildResult(g: Graph, r: DijkstraResult, p: BoatProfile, id: number, la
   const movableCount = bridges.filter((b) => b.movable && (b.height == null || b.height < p.height + p.margin)).length;
   if (movableCount > 0) warnings.push(`${movableCount} beweegbare brug${movableCount > 1 ? 'gen' : ''} moet${movableCount > 1 ? 'en' : ''} voor je open. Let op bedieningstijden.`);
 
-  const steps = buildSteps(g, r, coords, cum, bridges, locks, p);
-  const res: RouteResult = { id, label, coords: [...coords], nodeIds: r.nodes, edgeIds: r.edges, distance, duration, cum: [...cum], steps, bridges, locks, lowestBridge: lowest, unknownBridges: unknown, waterways, warnings };
-  attachEndpoints(res, p, fromPoint, toPoint);
+  const steps = r.edges.length > 0 ? buildSteps(g, r, coords, cum, bridges, locks, p) : [];
+  const res: RouteResult = {
+    id,
+    label,
+    coords: [...coords],
+    nodeIds: r.nodes,
+    edgeIds: r.edges,
+    distance,
+    duration: sailTime + waitTime,
+    sailTime,
+    waitTime,
+    cum: [...cum],
+    steps,
+    bridges,
+    locks,
+    lowestBridge: lowest,
+    unknownBridges: unknown,
+    waterways,
+    warnings,
+  };
+  attachEndpoints(res, r.start, r.end, fromPoint, toPoint);
   return res;
 }
 
-/** Voeg het exacte vertrek- en aankomstpunt toe (het stukje van de wal naar de vaarweg) */
-function attachEndpoints(res: RouteResult, p: BoatProfile, fromPoint?: LatLng, toPoint?: LatLng) {
-  const speedMs = Math.max(p.speed, 1) / 3.6;
+/** Voeg de stukjes edge tot het geprojecteerde vertrek- en aankomstpunt toe */
+function attachEndpoints(res: RouteResult, start: Terminal, end: Terminal, fromPoint?: LatLng, toPoint?: LatLng) {
   if (fromPoint) {
     const d0 = fastDist(fromPoint, res.coords[0]);
     if (d0 > 5) {
       res.coords.unshift(fromPoint);
       res.cum = [0, ...res.cum.map((c) => c + d0)];
       res.distance += d0;
-      res.duration += d0 / speedMs;
+      res.sailTime += start.time;
+      res.waitTime += start.wait;
       for (const s of res.steps) {
         s.at += d0;
         s.idx += 1;
       }
-      res.steps[0].at = 0;
-      res.steps[0].idx = 0;
-      res.steps[0].point = fromPoint;
-      res.steps[0].dist += d0;
+      if (res.steps.length) {
+        res.steps[0].at = 0;
+        res.steps[0].idx = 0;
+        res.steps[0].point = fromPoint;
+        res.steps[0].dist += d0;
+      }
       for (const b of res.bridges) b.at += d0;
       for (const l of res.locks) l.at += d0;
     }
@@ -235,14 +342,50 @@ function attachEndpoints(res: RouteResult, p: BoatProfile, fromPoint?: LatLng, t
       res.coords.push(toPoint);
       res.distance += d1;
       res.cum.push(res.distance);
-      res.duration += d1 / speedMs;
+      res.sailTime += end.time;
+      res.waitTime += end.wait;
       const arrive = res.steps[res.steps.length - 1];
-      arrive.at = res.distance;
-      arrive.idx = res.coords.length - 1;
-      arrive.point = toPoint;
-      if (res.steps.length > 1) res.steps[res.steps.length - 2].dist += d1;
+      if (arrive) {
+        arrive.at = res.distance;
+        arrive.idx = res.coords.length - 1;
+        arrive.point = toPoint;
+        if (res.steps.length > 1) res.steps[res.steps.length - 2].dist += d1;
+      }
     }
   }
+  res.duration = res.sailTime + res.waitTime;
+}
+
+/** Vertrek en bestemming liggen op hetzelfde vaarwegsegment: rechtstreeks varen */
+function sameEdgeRoute(g: Graph, a: Snap, b: Snap, p: BoatProfile, id: number, label: string): RouteResult | null {
+  const ev = evalEdge(g, a.edge, p);
+  if (!isFinite(ev.cost)) return null;
+  const frac = Math.abs(a.t - b.t);
+  const distance = g.edgeLength(a.edge) * frac;
+  const name = g.wayOf(a.edge).n;
+  const steps: RouteStep[] = [
+    { kind: 'depart', text: name ? `Vertrek over ${name}` : 'Vertrek', at: 0, dist: distance, point: a.snapped, idx: 0 },
+    { kind: 'arrive', text: name ? `Bestemming bereikt via ${name}` : 'Bestemming bereikt', at: distance, dist: 0, point: b.snapped, idx: 1 },
+  ];
+  return {
+    id,
+    label,
+    coords: [a.snapped, b.snapped],
+    nodeIds: [],
+    edgeIds: [a.edge],
+    distance,
+    duration: (ev.time + ev.wait) * frac,
+    sailTime: ev.time * frac,
+    waitTime: ev.wait * frac,
+    cum: [0, distance],
+    steps,
+    bridges: [],
+    locks: [],
+    lowestBridge: null,
+    unknownBridges: 0,
+    waterways: name ? [name] : [],
+    warnings: [],
+  };
 }
 
 function turnKind(angle: number): RouteStep['kind'] {
@@ -355,7 +498,7 @@ function buildSteps(
     steps.push({ kind, text, detail, at: b.at, dist: 0, point: b.point, idx: idxAt(b.at) });
   }
   for (const l of locks) {
-    steps.push({ kind: 'lock', text: `Schut door ${l.name ?? 'sluis'}`, detail: `reken op ca. ${p.lockWait} min`, at: l.at, dist: 0, point: l.point, idx: idxAt(l.at) });
+    steps.push({ kind: 'lock', text: `Schut door ${l.name ?? 'sluis'}`, detail: `reken op ca. ${p.lockWait + Math.round(REALISM.lockApproach / 60)} min`, at: l.at, dist: 0, point: l.point, idx: idxAt(l.at) });
   }
   steps.sort((a, b) => a.at - b.at);
   const total = cum[cum.length - 1];
@@ -368,9 +511,12 @@ function buildSteps(
 export interface RouteRequest {
   from: number;
   to: number;
-  /** exacte start/eindpositie (wordt als kort stukje aan de route geplakt) */
+  /** exacte start/eindpositie op het water (wordt als kort stukje aan de route geplakt) */
   fromPoint?: LatLng;
   toPoint?: LatLng;
+  /** volledige snap-informatie; dan begint en eindigt de zoektocht op het geprojecteerde punt in plaats van de dichtstbijzijnde knoop */
+  fromSnap?: Snap;
+  toSnap?: Snap;
   profile: BoatProfile;
   alternatives?: number;
 }
@@ -390,11 +536,17 @@ const overlap = (a: RouteResult, b: RouteResult) => {
 
 export function computeRoutes(g: Graph, req: RouteRequest): RouteOutcome {
   const { from, to, profile } = req;
-  const main = dijkstra(g, from, to, profile);
+  const goal = req.toPoint ?? g.nodes[to];
+  if (req.fromSnap && req.toSnap && req.fromSnap.edge === req.toSnap.edge) {
+    const r = sameEdgeRoute(g, req.fromSnap, req.toSnap, profile, 0, 'Snelste route');
+    if (r) return { routes: [r] };
+  }
+  const search = (prof: BoatProfile, penalty?: Map<number, number>) => dijkstra(g, terminals(g, req.fromSnap, from, prof), terminals(g, req.toSnap, to, prof), goal, prof, penalty);
+  const main = search(profile);
   if (!main) {
     // probeer zonder hoogte/beperkingen om uit te leggen waarom
     const relaxed: BoatProfile = { ...profile, height: 0, draft: 0, width: 0, allowMovable: true, avoidUnknownBridges: false };
-    const test = dijkstra(g, from, to, relaxed);
+    const test = search(relaxed);
     if (test) {
       // zoek de eerste blokkade op de vrije route
       let reason = '';
@@ -417,7 +569,7 @@ export function computeRoutes(g: Graph, req: RouteRequest): RouteOutcome {
   let tries = 0;
   while (routes.length < wanted + 1 && tries < 4) {
     tries++;
-    const alt = dijkstra(g, from, to, profile, penalty);
+    const alt = search(profile, penalty);
     if (!alt) break;
     const res = buildResult(g, alt, profile, routes.length, `Alternatief ${routes.length}`, req.fromPoint, req.toPoint);
     const tooSimilar = routes.some((r) => overlap(r, res) > 0.75);

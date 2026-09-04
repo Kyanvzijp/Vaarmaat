@@ -322,3 +322,10 @@ button.danger { background: #ffe8e8 !important; color: var(--err) !important; bo
 .gate-body button.primary { background: var(--blue); color: #fff; border: 0; border-radius: 12px; padding: 12px; font-weight: 600; font-size: 13px; width: 100%; min-height: 44px; }
 .gate-body button.primary:hover { background: var(--blue-dark); }
 .gate-body button.link { background: transparent; border: 0; color: var(--blue-dark); font-size: 13px; font-weight: 600; text-decoration: underline; padding: 6px; }
+
+/* Stuk over land (lopen, auto, ov) bij vertrek of bestemming */
+.access { display: flex; gap: 10px; align-items: flex-start; background: var(--canvas); border-radius: 10px; padding: 8px 10px; font-size: 13px; margin: 6px 0; color: var(--ink); }
+.access-icon { font-size: 18px; line-height: 20px; flex: none; }
+.access-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.access-links a { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--blue-dark); text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
+.access-links a:hover { background: var(--blue-soft); }

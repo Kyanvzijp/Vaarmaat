@@ -212,8 +212,10 @@ export default function App() {
     }
     if (st.remaining < 30 && !spokenRef.current.has('arrived')) {
       spokenRef.current.add('arrived');
-      speak('Je bent aangekomen op je bestemming.');
-      setMessage('Je bent aangekomen op je bestemming.');
+      const leg = route.access?.end;
+      const msg = leg ? `Je bent aangekomen bij het water. Nog ${formatDistance(leg.walkDistance)} lopen naar ${leg.name}.` : 'Je bent aangekomen op je bestemming.';
+      speak(msg);
+      setMessage(msg);
     }
   }, [gps, navigating, route, profile.speed, profile.height, profile.margin, settings.prepMinutes]);
 

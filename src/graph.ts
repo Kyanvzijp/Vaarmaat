@@ -1,5 +1,33 @@
-import type { GraphData, LatLng } from './types';
+import type { GraphData, LatLng, WayInfo } from './types';
 import { fastDist, projectOnSegment } from './geo';
+
+export interface Snap {
+  /** dichtstbijzijnde knoop (eindpunt van de edge) */
+  node: number;
+  /** de edge waarop het punt geprojecteerd is, en de positie erop (0 = eerste knoop, 1 = tweede) */
+  edge: number;
+  t: number;
+  /** afstand van het gekozen punt tot het water (m) */
+  dist: number;
+  /** het punt op het water */
+  snapped: LatLng;
+  comp: number;
+}
+
+const URBAN = /gracht|singel|burgwal|vest\b|binnenhaven|stadsgracht|haven\b/i;
+
+/**
+ * Snelheidsplafond (km/u, 0 = geen) en kostenfactor per vaarweg als OSM geen maxspeed geeft.
+ * Grachten en singels: 6 km/u. Naamloze kanalen zijn meestal polderslootjes: langzaam en onaantrekkelijk,
+ * zodat de route de echte vaarwegen volgt. Koppelstukjes (gaten in de data) zijn kort maar ongewenst.
+ */
+function classifyWay(w: WayInfo): [number, number] {
+  if (w.t === 'connector') return [4, 3];
+  if (w.t === 'fairway') return [0, 1];
+  if (!w.n) return w.t === 'river' ? [9, 1.3] : [6, 1.8];
+  if (URBAN.test(w.n)) return [6, 1];
+  return [0, 1];
+}
 
 /** Geladen graaf met adjacency en ruimtelijke index */
 export class Graph {
@@ -9,6 +37,10 @@ export class Graph {
   /** per edge: bruggen en sluizen */
   edgeBridges: Map<number, number[]> = new Map();
   edgeLocks: Map<number, number[]> = new Map();
+  /** snelheidsplafond per vaarweg (km/u) als OSM geen maximum kent: grachten en naamloze sloten langzamer */
+  wayCap: Float32Array;
+  /** kostenfactor per vaarweg voor de routekeuze (1 = neutraal); naamloze sloten en koppelstukjes zijn onaantrekkelijk */
+  wayFactor: Float32Array;
   private cellSize = 0.01; // ~1.1 km
   private grid: Map<string, number[]> = new Map(); // cell -> edge ids
 
@@ -26,6 +58,14 @@ export class Graph {
       lists[e[1]].push(i);
     });
     this.adj = lists.map((l) => Int32Array.from(l));
+
+    this.wayCap = new Float32Array(data.ways.length);
+    this.wayFactor = new Float32Array(data.ways.length);
+    data.ways.forEach((w, i) => {
+      const [cap, factor] = classifyWay(w);
+      this.wayCap[i] = cap;
+      this.wayFactor[i] = factor;
+    });
 
     data.bridges.forEach((b, i) => {
       const l = this.edgeBridges.get(b.e) ?? [];
@@ -103,17 +143,17 @@ export class Graph {
     return b;
   }
 
-  /** Dichtstbijzijnde knoop: kies eindpunt van dichtstbijzijnde edge dat het dichtst bij ligt */
-  nearestNode(p: LatLng, maxDist = 3000, comp?: number): { node: number; dist: number; snapped: LatLng; comp: number } | null {
+  /** Dichtstbijzijnde punt op het net: de edge, de positie erop (t) en de dichtstbijzijnde knoop */
+  nearestNode(p: LatLng, maxDist = 3000, comp?: number): Snap | null {
     const ne = this.nearestEdge(p, maxDist, comp);
     if (!ne) return null;
     const e = this.data.edges[ne.edge];
     const node = ne.t < 0.5 ? e[0] : e[1];
-    return { node, dist: ne.dist, snapped: ne.point, comp: this.data.comp[node] };
+    return { node, edge: ne.edge, t: ne.t, dist: ne.dist, snapped: ne.point, comp: this.data.comp[node] };
   }
 
   /** Snap twee punten op hetzelfde samenhangende vaarwegennet */
-  snapPair(a: LatLng, b: LatLng, maxDist = 3000): { a: { node: number; snapped: LatLng; dist: number }; b: { node: number; snapped: LatLng; dist: number } } | null {
+  snapPair(a: LatLng, b: LatLng, maxDist = 3000): { a: Snap; b: Snap } | null {
     const A = this.nearestNode(a, maxDist);
     const B = this.nearestNode(b, maxDist);
     if (!A || !B) return null;

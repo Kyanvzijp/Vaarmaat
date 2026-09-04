@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, CircleMarker, useMap, useMapEvents, Tooltip, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import type { LatLng, Poi, RouteResult, RouteStep } from '../types';
-import { formatHeight } from '../geo';
+import { formatHeight, formatDistance } from '../geo';
 import { POI_META } from '../pois';
 import type { Stage } from '../trip';
 
@@ -169,6 +169,13 @@ export default function MapView(p: Props) {
         <>
           <Polyline positions={sel.coords} pathOptions={{ color: '#ffffff', weight: 10, opacity: 0.9 }} />
           <Polyline positions={sel.coords} pathOptions={{ color: '#0a66ff', weight: 6, opacity: 1 }} />
+          {[sel.access?.start, sel.access?.end].map((leg, i) =>
+            leg ? (
+              <Polyline key={`a${i}`} positions={[leg.point, leg.water]} pathOptions={{ color: '#5d6b85', weight: 3, opacity: 0.9, dashArray: '4 8' }}>
+                <Tooltip>Over land: {formatDistance(leg.walkDistance)} lopen</Tooltip>
+              </Polyline>
+            ) : null,
+          )}
           {sel.bridges.map((b, i) => (
             <CircleMarker key={`b${i}`} center={b.point} radius={6} pathOptions={{ color: '#fff', fillColor: b.movable ? '#e08a00' : '#334', fillOpacity: 1, weight: 2 }}>
               <Tooltip>{b.name ?? 'Brug'} · {b.movable ? 'beweegbaar · ' : ''}{formatHeight(b.height)}</Tooltip>
