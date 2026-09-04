@@ -89,6 +89,22 @@ export interface RouteStep {
   idx: number;
 }
 
+/** Stuk over land tussen het gekozen punt en het water (lopen, auto of ov) */
+export interface LandLeg {
+  /** het punt dat de gebruiker koos */
+  point: LatLng;
+  /** het punt op het water waar de vaarroute begint of eindigt */
+  water: LatLng;
+  /** hemelsbreed (m) */
+  distance: number;
+  /** geschatte loopafstand (m), hemelsbreed maal 1,3 */
+  walkDistance: number;
+  /** geschatte looptijd (s) bij 4,5 km/u */
+  walkTime: number;
+  /** naam van het gekozen punt */
+  name: string;
+}
+
 export interface RouteResult {
   id: number;
   label: string;
@@ -99,6 +115,12 @@ export interface RouteResult {
   distance: number;
   /** seconden, inclusief wachttijden */
   duration: number;
+  /** seconden zuivere vaartijd (zonder wachten bij bruggen en sluizen) */
+  sailTime: number;
+  /** seconden wachten en schutten bij beweegbare bruggen en sluizen */
+  waitTime: number;
+  /** stukken over land aan begin en eind, als het gekozen punt niet op het water ligt */
+  access?: { start?: LandLeg; end?: LandLeg };
   /** cumulatieve afstand per coord */
   cum: number[];
   steps: RouteStep[];

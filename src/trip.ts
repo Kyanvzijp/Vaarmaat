@@ -2,6 +2,8 @@ import type { Graph } from './graph';
 import { computeRoutes } from './routing';
 import type { BoatProfile, LatLng, Poi, RouteResult } from './types';
 import { OVERNIGHT_KINDS, poisAlongRoute } from './pois';
+import { landLeg } from './lastmile';
+import { formatDistance, formatDuration } from './geo';
 
 export interface Stage {
   day: number;
@@ -35,6 +37,8 @@ export function concatRoutes(parts: RouteResult[]): RouteResult {
   const nodeIds = [...first.nodeIds];
   let distance = first.distance;
   let duration = first.duration;
+  let sailTime = first.sailTime;
+  let waitTime = first.waitTime;
   const waterways = [...first.waterways];
   let unknown = first.unknownBridges;
   let lowest = first.lowestBridge;
@@ -58,6 +62,8 @@ export function concatRoutes(parts: RouteResult[]): RouteResult {
     nodeIds.push(...p.nodeIds.slice(1));
     distance += p.distance;
     duration += p.duration;
+    sailTime += p.sailTime;
+    waitTime += p.waitTime;
     for (const w of p.waterways) if (waterways[waterways.length - 1] !== w) waterways.push(w);
     unknown += p.unknownBridges;
     if (p.lowestBridge != null && (lowest == null || p.lowestBridge < lowest)) lowest = p.lowestBridge;
@@ -65,7 +71,8 @@ export function concatRoutes(parts: RouteResult[]): RouteResult {
   for (let i = 0; i < steps.length - 1; i++) steps[i].dist = steps[i + 1].at - steps[i].at;
   const warnings: string[] = [];
   if (unknown > 0) warnings.push(`${unknown} brug${unknown > 1 ? 'gen' : ''} met onbekende doorvaarthoogte op de route.`);
-  return { id: 0, label: 'Route via tussenpunten', coords, nodeIds, edgeIds, distance, duration, cum, steps, bridges, locks, lowestBridge: lowest, unknownBridges: unknown, waterways, warnings };
+  const access = { start: first.access?.start, end: parts[parts.length - 1].access?.end };
+  return { id: 0, label: 'Route via tussenpunten', coords, nodeIds, edgeIds, distance, duration, sailTime, waitTime, access, cum, steps, bridges, locks, lowestBridge: lowest, unknownBridges: unknown, waterways, warnings };
 }
 
 export interface MultiRouteResult {
@@ -80,8 +87,18 @@ export function routeWaypoints(g: Graph, points: { point: LatLng; name: string }
   for (let i = 0; i < points.length - 1; i++) {
     const pair = g.snapPair(points[i].point, points[i + 1].point, 2500);
     if (!pair) return { routes: [], error: `Geen vaarweg gevonden bij "${points[i].name}" of "${points[i + 1].name}".` };
-    const out = computeRoutes(g, { from: pair.a.node, to: pair.b.node, fromPoint: pair.a.snapped, toPoint: pair.b.snapped, profile, alternatives: points.length === 2 ? 2 : 0 });
+    const out = computeRoutes(g, { from: pair.a.node, to: pair.b.node, fromPoint: pair.a.snapped, toPoint: pair.b.snapped, fromSnap: pair.a, toSnap: pair.b, profile, alternatives: points.length === 2 ? 2 : 0 });
     if (out.routes.length === 0) return { routes: [], error: out.blockedInfo ?? `Geen route tussen "${points[i].name}" en "${points[i + 1].name}".` };
+    // stukken over land: van het gekozen punt naar het water en van het water naar de bestemming
+    for (const r of out.routes) {
+      const start = landLeg(points[i].point, r.coords[0], points[i].name);
+      const end = landLeg(points[i + 1].point, r.coords[r.coords.length - 1], points[i + 1].name);
+      if (start || end) r.access = { start: start ?? undefined, end: end ?? undefined };
+      const first = r.steps[0];
+      const last = r.steps[r.steps.length - 1];
+      if (start && first?.kind === 'depart') first.detail = `eerst ${formatDistance(start.walkDistance)} van ${start.name} naar het water`;
+      if (end && last?.kind === 'arrive') last.detail = `nog ${formatDistance(end.walkDistance)} lopen naar ${end.name}, ongeveer ${formatDuration(end.walkTime)}`;
+    }
     if (points.length === 2) return { routes: out.routes };
     parts.push(out.routes[0]);
   }

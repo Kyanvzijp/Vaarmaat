@@ -62,6 +62,7 @@ De vaarwegen, bruggen (doorvaarthoogtes) en sluizen komen uit OpenStreetMap en s
 node scripts/fetch_osm.mjs                       # vaarwegen, bruggen, sluizen (Groene Hart + Hollandse Plassen)
 node scripts/fetch_osm.mjs 50.75 3.20 53.60 7.25 # heel Nederland (grotere download)
 python3 scripts/build_graph.py                   # bouwt public/data/graph.json
+python3 scripts/refine_graph.py                  # voegt dubbele bruggen samen (rijbaan, fietspad en spoor over hetzelfde water)
 node scripts/fetch_pois.mjs                      # havens, aanlegplaatsen, voorzieningen, bedieningsinfo
 python3 scripts/build_pois.py                    # bouwt public/data/pois.json en koppelt marifoon/telefoon/tijden aan bruggen en sluizen
 npx tsx scripts/test_route.ts                    # controleert een aantal bekende routes
@@ -73,6 +74,10 @@ Bij een ander gebied ook `KNOWN_PLACES` in `src/geocode.ts` en de `VIEWBOX` daar
 
 `scripts/build_graph.py` maakt van alle OSM vaarwegen (canal, river, fairway) een graaf van knopen en segmenten, koppelt losse eindpunten binnen 30 m, projecteert bruggen (`seamark:bridge:clearance_height`, `bridge:movable`) en sluizen op de segmenten en verwijdert duikers en niet bevaarbare stukken. In de browser rekent `src/routing.ts` met A* de snelste route op basis van tijd: lengte gedeeld door de kruissnelheid of de maximumsnelheid van de vaarweg, plus wachttijd bij beweegbare bruggen en sluizen. Bruggen lager dan hoogte plus marge zijn geblokkeerd tenzij ze beweegbaar zijn en je dat toestaat. Alternatieven ontstaan door de gevonden route zwaarder te wegen en opnieuw te rekenen.
 
+De route begint en eindigt op het punt van de vaarweg dat het dichtst bij je keuze ligt, niet op de dichtstbijzijnde knoop. Ligt je vertrekpunt of bestemming meer dan 150 m van het water, dan toont de app het stuk over land (loopafstand en looptijd) met links naar een loop-, auto- of ov-route in Google Maps of Apple Kaarten; de app rekent zelf geen landroutes.
+
+Tijden zijn bewust niet optimistisch. De kruissnelheid geldt op open water; de app rekent met 90 procent daarvan, met 6 km/u in grachten en singels en in naamloze sloten, met een halve minuut per vaste brug, met de wachttijd uit je profiel per beweegbare brug (plus 5 minuten bij lage of naamloze bruggetjes, meestal zelfbediening) en met 5 minuten aanmeren voor elke sluis boven op de schuttijd. Naamloze polderslootjes en koppelstukjes in de data tellen zwaarder mee in de routekeuze, zodat de route de echte vaarwegen volgt. De instellingen staan in `REALISM` in `src/routing.ts` en in `classifyWay` in `src/graph.ts`.
+
 Doorvaarthoogtes in OpenStreetMap zijn niet volledig (van ongeveer 1 op de 5 bruggen is de hoogte bekend) en hangen af van de waterstand. Controleer altijd ter plaatse; de app waarschuwt bij bruggen met onbekende hoogte en je kunt die desgewenst laten vermijden.
 
 ## Structuur
@@ -82,7 +87,8 @@ src/
   App.tsx            hoofdscherm, tabbladen en state
   components/        kaart, zoekvelden, bootprofiel, routepaneel, navigatie, nadering sluis/brug, lessen, tochten, aan boord
   content/lessons.ts e-learning modules, quizvragen en checklists
-  routing.ts         A*, kosten per bootprofiel, alternatieven, afslaginstructies
+  routing.ts         A*, realistische kosten per bootprofiel, alternatieven, afslaginstructies
+  lastmile.ts        stuk over land: loopafstand en links naar loop-, auto- en ov-routes
   trip.ts            tussenpunten, dagetappes en overnachtingsvoorstellen
   navigation.ts      positie op de route, resterende afstand en tijd
   voice.ts           gesproken instructies
@@ -98,7 +104,8 @@ src/
 scripts/
   fetch_osm.mjs      vaarwegen ophalen          build_graph.py  graaf bouwen
   fetch_pois.mjs     havens en bediening ophalen build_pois.py  POI's bouwen en bedieningsinfo koppelen
-  test_route.ts      routes controleren in de terminal
+  refine_graph.py    dubbele bruggen samenvoegen (na build_graph.py)
+  test_route.ts      routes controleren in de terminal, met regressiecontrole op bekende routes
   screenshot.mjs     schermafbeeldingen met Playwright      icons.mjs       PNG-iconen uit de SVG
 supabase/migrations/    databaseschema met RLS
 docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md

@@ -1,4 +1,5 @@
-import type { RouteResult, RouteStep, BoatProfile, Poi, LatLng } from '../types';
+import type { RouteResult, RouteStep, BoatProfile, Poi, LatLng, LandLeg } from '../types';
+import { directionsUrl, isApple, type TravelMode } from '../lastmile';
 import { formatDistance, formatDuration, formatHeight } from '../geo';
 import type { Stage } from '../trip';
 import { StagesList } from './TripsView';
@@ -46,6 +47,36 @@ interface Props {
   onTab: (t: Props['tab']) => void;
 }
 
+const MODES: [TravelMode, string][] = [
+  ['lopen', 'Lopen'],
+  ['auto', 'Auto'],
+  ['ov', 'OV'],
+];
+
+/** Stuk over land tussen het gekozen punt en het water, met links naar een routeplanner */
+export function AccessCard({ leg, kind }: { leg: LandLeg; kind: 'start' | 'end' }) {
+  const from = kind === 'start' ? leg.point : leg.water;
+  const to = kind === 'start' ? leg.water : leg.point;
+  const text =
+    kind === 'start'
+      ? `${leg.name} ligt ${formatDistance(leg.distance)} van het water. Eerst naar de vaarweg: ongeveer ${formatDuration(leg.walkTime)} lopen.`
+      : `${leg.name} ligt ${formatDistance(leg.distance)} van het water. Vanaf de aanlegplek nog ongeveer ${formatDuration(leg.walkTime)} lopen.`;
+  return (
+    <div className="access">
+      <span className="access-icon" aria-hidden="true">🚶</span>
+      <div>
+        <span>{text}</span>
+        <div className="access-links">
+          {MODES.map(([mode, label]) => (
+            <a key={mode} href={directionsUrl(from, to, mode)} target="_blank" rel="noopener noreferrer">{label}</a>
+          ))}
+          {isApple() && <a href={directionsUrl(from, to, 'lopen', 'apple')} target="_blank" rel="noopener noreferrer">Apple Kaarten</a>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RoutePanel(p: Props) {
   const { routes, selected, profile } = p;
   const r = routes[selected];
@@ -62,7 +93,8 @@ export default function RoutePanel(p: Props) {
         <div>
           <h2>{formatDuration(r.duration)} <span className="muted">({formatDistance(r.distance)})</span></h2>
           <p className="muted small">
-            {long ? `${Math.ceil(r.duration / 3600 / p.hoursPerDay)} dagen bij ${p.hoursPerDay} u/dag` : `Aankomst rond ${arrivalStr}`} bij {profile.speed} km/u · {r.bridges.length} bruggen · {r.locks.length} sluizen
+            {long ? `${Math.ceil(r.duration / 3600 / p.hoursPerDay)} dagen bij ${p.hoursPerDay} u/dag` : `Aankomst rond ${arrivalStr}`} bij {profile.speed} km/u
+            {r.waitTime >= 300 && ` · waarvan ${formatDuration(r.waitTime)} wachten`} · {r.bridges.length} bruggen · {r.locks.length} sluizen
             {r.lowestBridge != null && ` · laagste brug ${formatHeight(r.lowestBridge)}`}
           </p>
         </div>
@@ -83,6 +115,8 @@ export default function RoutePanel(p: Props) {
       {r.warnings.map((w, i) => (
         <div key={i} className="warn soft">{w}</div>
       ))}
+      {r.access?.start && <AccessCard leg={r.access.start} kind="start" />}
+      {r.access?.end && <AccessCard leg={r.access.end} kind="end" />}
       <div className="actions">
         <button className="primary" onClick={p.onStart}>▶ Start navigatie</button>
         <button onClick={p.onSaveTrip}>💾 Bewaren</button>
