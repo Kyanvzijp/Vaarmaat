@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Vaarmaat",
+    "slug": "vaarmaat",
+    "scheme": "vaarmaat",
+    "version": "2.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#dfe9f5",
+    "ios": {
+      "bundleIdentifier": "nl.vaarmaat.app",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Vaarmaat gebruikt je locatie om je positie op de kaart te tonen en je tijdens het varen te navigeren.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "nl.vaarmaat.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0a66ff",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Vaarmaat gebruikt je locatie om je positie op de kaart te tonen en je tijdens het varen te navigeren."
+        }
+      ],
+      "react-native-maps"
+    ],
+    "owner": "vaarmaat",
+    "extra": {
+      "eas": {
+        "projectId": "35679928-3d1d-4b13-b085-e757c8ba3fcb"
+      }
+    }
+  }
+}
