@@ -22,7 +22,10 @@
         "backgroundColor": "#0a66ff",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
@@ -35,6 +38,12 @@
         }
       ],
       "react-native-maps"
-    ]
+    ],
+    "owner": "vaarmaat",
+    "extra": {
+      "eas": {
+        "projectId": "35679928-3d1d-4b13-b085-e757c8ba3fcb"
+      }
+    }
   }
 }
