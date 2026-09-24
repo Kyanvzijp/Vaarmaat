@@ -1,34 +1,34 @@
 # Van webapp naar App Store en Google Play
 
-Vaarmaat is eerst een PWA: installeerbaar vanuit de browser, offline, met GPS en spraak. Dat is fase 1 tot 3 uit de spec. Daarna komt een native verpakking voor de App Store en Google Play. Dit document beschrijft de gekozen route en wat er dan nodig is, zodat de webapp nu al de juiste kant op gebouwd wordt.
+Vaarmaat is eerst een PWA: installeerbaar vanuit de browser, offline, met GPS en spraak. Dat is fase 1 tot 3 uit de spec. Daarnaast is er een native app voor de App Store en Google Play in `mobile/`. Dit document beschrijft de gekozen route en wat er dan nodig is, zodat de webapp nu al de juiste kant op gebouwd wordt.
 
-## 1. Aanpak: Capacitor rond dezelfde webapp
+## 1. Aanpak: native app met Expo, logica gedeeld met de webapp
 
-Capacitor verpakt de gebouwde site (`dist/`) in een iOS- en Android-app en geeft toegang tot native functies via plugins. De React-code blijft één codebase; er komt geen tweede app. Lovable ondersteunt deze route ook.
+De app voor iOS en Android staat in `mobile/` en is gebouwd met Expo (React Native). Eerder was Capacitor rond de webapp het plan; gekozen is voor Expo omdat kaart, GPS, spraak en scherm-aan dan echt native zijn. De prijs: er zijn twee UI-lagen (web in `src/components/`, app in `mobile/src/components/`). De rekenlogica is één codebase: de app importeert `src/routing.ts`, `graph.ts`, `navigation.ts`, `trip.ts`, `pois.ts`, `weather.ts`, `geocode.ts`, `store.ts`, `profile.ts` en `content/lessons.ts` rechtstreeks via het pad `@shared/`, en bundelt `public/data/*.json`.
 
-Wat er dan verandert per onderdeel:
-
-| Onderdeel | Webapp nu | Native straks |
+| Onderdeel | Webapp | App (`mobile/`) |
 | --- | --- | --- |
-| GPS | `navigator.geolocation` | `@capacitor/geolocation`, ook op de achtergrond tijdens navigatie |
-| Spraak | `SpeechSynthesis` | `@capacitor-community/text-to-speech` |
-| Scherm aan tijdens navigatie | Wake Lock API | `@capacitor-community/keep-awake` |
-| Trillen bij instructie | Vibration API | `@capacitor/haptics` |
-| Meldingen | Web Push (VAPID) | `@capacitor/push-notifications` (APNs, FCM) |
-| Opslag | localStorage en IndexedDB | zelfde, plus `@capacitor/preferences` voor kleine sleutels |
-| Kaarttegels offline | service worker | zelfde webview-cache; grotere gebieden via `@capacitor/filesystem` |
+| Kaart | Leaflet | `react-native-maps` met OSM- en OpenSeaMap-tegels, satelliet via de native kaart |
+| GPS | `navigator.geolocation` | `expo-location` (voorgrond; achtergrond volgt, zie 2) |
+| Spraak | `SpeechSynthesis` | `expo-speech` (`mobile/src/voice.ts`, zelfde API) |
+| Scherm aan tijdens navigatie | Wake Lock API | `expo-keep-awake` |
+| Opslag | localStorage | synchrone localStorage uit `expo-sqlite`, dus `src/store.ts` werkt ongewijzigd |
+| GPX delen | download | `expo-file-system` en het deelmenu (`expo-sharing`) |
+| Data | `fetch('/data/*.json')` | meegebundeld, dus ook zonder internet |
 | Betalen voor Plus | Stripe Checkout | In-App Purchase (zie 3) |
 
-Houd daarom in de webapp de browser-API's achter kleine functies (`src/voice.ts`, GPS in `App.tsx`, straks `src/device.ts`), zodat de native variant er met één `if (Capacitor.isNativePlatform())` naast kan.
+Regel: nieuwe logica (routering, kosten, planners) hoort in `src/` zonder browser-API's, zodat web en app hem allebei gebruiken. Browserspecifieke dingen blijven achter kleine functies zoals `src/voice.ts`.
 
-## 2. Stappen bij de overstap
+## 2. Stappen naar de winkels
 
-1. `npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android` en `npx cap init Vaarmaat nl.vaarmaat.app --web-dir dist`.
-2. `npm run build && npx cap add ios && npx cap add android`, daarna `npx cap sync` na elke build.
-3. Iconen en splash: `npm run icons` maakt de PNG's; met `@capacitor/assets` worden daar alle maten voor iOS en Android van gemaakt. Bron: `public/icon-512.svg`.
-4. Rechten in `Info.plist` en `AndroidManifest.xml`: locatie (altijd, met uitleg "Vaarmaat gebruikt je locatie om je op het water te navigeren"), meldingen, microfoon niet nodig.
-5. Deeplinks: `vaarmaat.nl/t/<id>` als Universal Link (iOS) en App Link (Android), zodat gedeelde tochten in de app openen.
-6. Testen op echte toestellen: GPS op het water, spraak met scherm uit, batterijverbruik bij 4 uur navigatie.
+1. Ontwikkelen: `cd mobile && npm install && npm start`, openen in Expo Go op je telefoon. Zie `mobile/README.md`.
+2. Accounts: Expo (EAS), Apple Developer Program en Google Play Console. Bundle-id en package: `nl.vaarmaat.app`.
+3. Android heeft voor de kaart een Google Maps API-sleutel nodig in echte builds: zet `GOOGLE_MAPS_ANDROID_API_KEY` als EAS-secret (`app.config.js` leest hem).
+4. Kaarttegels: `tile.openstreetmap.org` is niet bedoeld voor een app met veel gebruikers. Neem voor de winkelversie een tegelprovider (bijvoorbeeld MapTiler of Stadia) en pas `OSM` in `mobile/src/components/MapView.tsx` aan.
+5. Builds: `npx eas-cli build --profile preview` voor testtoestellen, `--profile production` en `npx eas-cli submit` voor de winkels (`mobile/eas.json`).
+6. Achtergrond-GPS tijdens navigatie (scherm uit): `expo-location` met `startLocationUpdatesAsync` en `expo-task-manager`, plus de rechten "altijd" met uitleg "Vaarmaat gebruikt je locatie om je op het water te navigeren".
+7. Deeplinks: `vaarmaat.nl/t/<id>` als Universal Link (iOS) en App Link (Android); het schema `vaarmaat://` staat al in `app.json`.
+8. Testen op echte toestellen: GPS op het water, spraak met scherm uit, batterijverbruik bij 4 uur navigatie.
 
 ## 3. Betalen: de regels van de winkels
 
@@ -49,7 +49,7 @@ Apple en Google eisen dat een digitaal abonnement dat in de app wordt afgesloten
 
 ## 5. Wat nu al klaar is voor die stap
 
-- PNG-iconen in `public/icons/` (192, 512, maskable, apple-touch-icon) en de SVG-bron.
-- `viewport-fit=cover` en de Apple-metatags in `index.html`, zodat de app al goed vult op toestellen met een notch.
-- Alle data offline in de bundel en de service worker; geen server nodig om te varen.
+- De Expo-app in `mobile/` met alle schermen van de webapp: planner, alternatieven, afslagen, dagindeling, aanleggen, weer, navigatie met spraak en naderingskaart, havens, bootprofiel, tochten, leren, checklists, logboek en instellingen.
+- Iconen uit `public/icons/` in `mobile/assets/`, bundle-id `nl.vaarmaat.app`, locatierechten met Nederlandse uitleg.
+- Alle data offline in de bundel; geen server nodig om te varen.
 - Nederlandse teksten en de styleguide; systeemlettergrootte tot 130 procent wordt ondersteund.

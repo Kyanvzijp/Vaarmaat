@@ -13,6 +13,7 @@ Vaarmaat is een web app (PWA) voor de pleziervaart in Nederland: routeplanner, n
 - Backend: Supabase via Lovable Cloud. Client en types in `src/integrations/supabase/` (Lovable genereert die opnieuw), eigen laag in `src/backend/` (auth, sync, subscription). Schema alleen wijzigen via een nieuw bestand in `supabase/migrations/` met RLS. Zonder `VITE_SUPABASE_*` is de client `null` en moet alles als gast blijven werken. Contracten in `docs/BACKEND.md`, stappenplan in `docs/LOVABLE.md`.
 - Importpad `@/` wijst naar `src/`. Vite draait op poort 8080 (conventie van Lovable).
 - Build moet altijd slagen: `npm run build` (tsc strict + vite) en `npm run lint`. Draai `npm run test:routes` na wijzigingen aan routing of data; de bekende routes (Kaag → Leiden 12 tot 13 km, Alphen → Amsterdam ongeveer 42 km) moeten blijven werken.
+- App voor iOS en Android: Expo in `mobile/` (eigen `package.json`, SDK 57). Die importeert de logica uit `src/` via `@shared/` en de data uit `public/data/` via `@data/`. Houd `src/` daarom vrij van browser-API's buiten `voice.ts`, `analytics.ts`, `backend/` en de loaders; UI-wijzigingen doe je in beide lagen (`src/components/` en `mobile/src/components/`). Controle: `cd mobile && npm run typecheck`. Zie `mobile/README.md`.
 - Deploy: Netlify, `netlify.toml` staat klaar. GPS en spraak werken alleen via https.
 - Veiligheidsinhoud (noodnummers, bruglichten, korte checklists) is altijd gratis en offline; zet nooit een betaalmuur voor iets wat iemand op het water direct nodig heeft.
 

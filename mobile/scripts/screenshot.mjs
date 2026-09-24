@@ -1,0 +1,41 @@
+// Screenshots van de browser-preview (npm run web) op telefoonformaat. Gebruikt Playwright uit de root van de repo.
+// Gebruik: npm run web (in mobile/), dan: node mobile/scripts/screenshot.mjs
+import fs from 'node:fs';
+import { chromium } from 'playwright';
+const dir = process.env.OUT || 'screenshots/mobile';
+const url = process.env.URL || 'http://localhost:8081/';
+fs.mkdirSync(dir, { recursive: true });
+const b = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium' });
+const ctx = await b.newContext({ viewport: { width: 420, height: 820 }, deviceScaleFactor: 2, locale: 'nl-NL', geolocation: { latitude: 52.2166, longitude: 4.5934 }, permissions: ['geolocation'] });
+const p = await ctx.newPage();
+const errors = [];
+p.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+p.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('ERR_')) errors.push('console: ' + m.text()); });
+const shot = (n) => p.screenshot({ path: `${dir}/${n}.png` });
+const pick = async (label, q, result) => {
+  await p.fill(`input[aria-label="${label}"]`, q);
+  await p.waitForTimeout(900);
+  await p.getByText(result, { exact: true }).last().click();
+};
+await p.goto(url);
+await p.waitForTimeout(4000);
+await shot('01_start');
+await pick('A', 'Kaag', 'Kaag (Kaagdorp)');
+await pick('B', 'Leiden', 'Leiden centrum');
+await p.waitForTimeout(2500);
+await shot('02_route');
+console.log('route:', await p.locator('text=/^\\d+ (min|u)/').first().textContent().catch(() => 'niet gevonden'));
+await p.getByText(/^Afslagen/).click(); await p.waitForTimeout(500); await shot('03_steps');
+await p.getByText('Tocht', { exact: true }).click(); await p.waitForTimeout(500); await shot('04_trip');
+await p.getByText('▶ Start navigatie').click(); await p.waitForTimeout(2500); await shot('05_nav');
+await p.getByText('■ Stop').click(); await p.waitForTimeout(500);
+await p.getByText('Leren', { exact: true }).last().click(); await p.waitForTimeout(500); await shot('06_learn');
+await p.getByText('Een sluis passeren').click(); await p.waitForTimeout(500); await shot('07_lesson');
+await p.getByText('Aan boord', { exact: true }).last().click(); await p.waitForTimeout(500);
+await p.getByText('✅ Checklists').click(); await p.waitForTimeout(300); await shot('08_check');
+await p.getByText('⚙️ Instellingen').click(); await p.waitForTimeout(300); await shot('09_settings');
+await p.getByText('Tochten', { exact: true }).last().click(); await p.waitForTimeout(300); await shot('10_trips');
+await p.getByText('Kaart', { exact: true }).last().click(); await p.waitForTimeout(300);
+await p.getByLabel('Bootprofiel').click(); await p.waitForTimeout(400); await shot('11_profile');
+console.log(JSON.stringify(errors, null, 1));
+await b.close();

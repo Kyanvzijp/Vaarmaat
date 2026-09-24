@@ -37,6 +37,18 @@ npm run test:routes  # bekende routes (Kaag naar Leiden, Alphen naar Amsterdam, 
 npm run preview & npm run screenshot   # schermafbeeldingen op telefoon en desktop, geen console-errors
 ```
 
+## App voor iPhone en Android (Expo)
+
+In `mobile/` staat de native app, gebouwd met Expo. Hij deelt de rekenlogica en de data met de webapp en heeft eigen native schermen. Snel proberen op je telefoon:
+
+```bash
+cd mobile
+npm install
+npm start            # scan de QR-code met Expo Go (iOS en Android)
+```
+
+Meer, waaronder builds voor de App Store en Google Play: `mobile/README.md` en `docs/APPSTORE.md`.
+
 ## Backend, accounts en Vaarmaat Plus
 
 De frontend werkt zonder backend. Accounts, synchronisatie, het Plus-abonnement, feeds en reserveren worden gebouwd op Supabase (Lovable Cloud). Wat er klaarstaat:
@@ -107,6 +119,7 @@ scripts/
   refine_graph.py    dubbele bruggen samenvoegen (na build_graph.py)
   test_route.ts      routes controleren in de terminal, met regressiecontrole op bekende routes
   screenshot.mjs     schermafbeeldingen met Playwright      icons.mjs       PNG-iconen uit de SVG
+mobile/                 app voor iOS en Android (Expo), zie mobile/README.md
 supabase/migrations/    databaseschema met RLS
 docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md
 public/data/graph.json  voorberekende vaarwegengraaf
