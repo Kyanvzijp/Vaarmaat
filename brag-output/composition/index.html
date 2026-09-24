@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Vaarmaat brag</title>
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/data/data.js"></script>
+    <style>
+      @font-face { font-family: "Outfit"; font-weight: 400; src: url("assets/fonts/outfit-latin-400-normal.woff2") format("woff2"); }
+      @font-face { font-family: "Outfit"; font-weight: 600; src: url("assets/fonts/outfit-latin-600-normal.woff2") format("woff2"); }
+      @font-face { font-family: "Outfit"; font-weight: 700; src: url("assets/fonts/outfit-latin-700-normal.woff2") format("woff2"); }
+      :root {
+        --blue: #0a66ff; --blue-dark: #0747b3; --blue-soft: #eef3ff;
+        --ink: #12203a; --muted: #5d6b85; --line: #e3e8f0;
+        --surface: #ffffff; --canvas: #f2f5fa; --water: #dfe9f5;
+        --starboard: #0a8f5b; --port: #d33b3b; --movable: #e08a00;
+        --ok-bg: #e3f7ea; --ok: #0a6b43;
+        --shadow: 0 6px 24px rgba(10, 30, 70, 0.18);
+      }
+      html, body { margin: 0; background: var(--canvas); }
+      body { font-family: "Outfit", system-ui, sans-serif; color: var(--ink); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--canvas); }
+      .clip { position: absolute; inset: 0; }
+      .fill { position: absolute; inset: 0; }
+      svg.net { position: absolute; inset: 0; width: 100%; height: 100%; }
+      svg.net path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+      /* Scene 1 */
+      #s1-mapwrap { position: absolute; inset: 0; }
+      #s1-veil { position: absolute; inset: 0; background: radial-gradient(ellipse 42% 45% at 26% 50%, rgba(242,245,250,0.97) 0%, rgba(242,245,250,0.85) 55%, rgba(242,245,250,0) 100%); }
+      .hook { position: absolute; left: 140px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 12px; width: 1300px; }
+      .hook .l1 { font-size: 150px; font-weight: 700; letter-spacing: -3px; line-height: 1.02; color: var(--ink); }
+      .hook .l2 { font-size: 104px; font-weight: 700; letter-spacing: -2px; line-height: 1.05; color: var(--blue-dark); }
+
+      /* Scene 2 */
+      .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      .logo-box { width: 230px; height: 230px; border-radius: 52px; box-shadow: var(--shadow); }
+      .logo-svg { display: block; width: 100%; height: 100%; }
+      .wordmark { font-size: 170px; font-weight: 700; letter-spacing: -3px; margin-top: 30px; line-height: 1; }
+      .subline { font-size: 50px; font-weight: 400; color: var(--muted); margin-top: 22px; }
+      #s2-bg { position: absolute; inset: 0; background: var(--canvas); }
+
+      /* Scene 3 */
+      #s3-bg { position: absolute; inset: 0; background: var(--canvas); }
+      .app-card { position: absolute; left: 90px; top: 110px; width: 700px; background: var(--surface); border-radius: 28px; box-shadow: var(--shadow); padding: 34px 36px; box-sizing: border-box; }
+      .brandrow { display: flex; align-items: center; gap: 18px; }
+      .brandrow .mini { width: 64px; height: 64px; }
+      .brandrow .t1 { font-size: 40px; font-weight: 700; line-height: 1.1; }
+      .brandrow .t2 { font-size: 24px; color: var(--muted); }
+      .boatbtn { margin-left: auto; background: var(--blue-soft); border: 2px solid #c9d9ff; border-radius: 18px; padding: 14px 22px; font-size: 26px; font-weight: 700; color: var(--ink); }
+      .field { margin-top: 20px; height: 84px; background: var(--canvas); border: 2px solid var(--line); border-radius: 18px; display: flex; align-items: center; padding: 0 22px; gap: 18px; box-sizing: border-box; }
+      .pin { width: 46px; height: 46px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 26px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex: none; }
+      .ftext { font-size: 36px; font-weight: 400; white-space: nowrap; display: flex; align-items: center; }
+      .caret { display: block; width: 3px; height: 40px; background: var(--blue); margin-left: 3px; }
+      .sheet { position: absolute; left: 90px; top: 560px; width: 700px; background: var(--surface); border-radius: 28px; box-shadow: var(--shadow); padding: 34px 36px; box-sizing: border-box; }
+      .sheet .big { font-size: 66px; font-weight: 700; letter-spacing: -1px; }
+      .sheet .big span { color: var(--muted); }
+      .sheet .meta { font-size: 30px; color: var(--muted); margin-top: 8px; }
+      .chip { display: inline-block; margin-top: 22px; border: 3px solid var(--blue); background: var(--blue-soft); border-radius: 18px; padding: 12px 22px; font-size: 28px; font-weight: 700; }
+      .marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; border: 6px solid #fff; box-shadow: var(--shadow); box-sizing: border-box; margin: -20px 0 0 -20px; }
+      .mlabel { position: absolute; font-size: 28px; font-weight: 700; color: var(--ink); background: var(--surface); padding: 6px 16px; border-radius: 999px; box-shadow: var(--shadow); white-space: nowrap; }
+
+      /* Scene 4 */
+      #s4-bg { position: absolute; inset: 0; background: var(--water); }
+      .s4-water { position: absolute; left: 0; right: 0; top: 728px; bottom: 0; background: #9db8dc; border-top: 10px solid #8fb0da; }
+      .s4-title { position: absolute; left: 110px; top: 90px; font-size: 76px; font-weight: 700; letter-spacing: -1.5px; }
+      .illu { position: absolute; left: 0; top: 230px; width: 1060px; height: 742px; }
+      .rows { position: absolute; left: 1120px; top: 300px; width: 700px; display: flex; flex-direction: column; gap: 26px; }
+      .row { background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 28px 34px; }
+      .row .k { font-size: 30px; color: var(--muted); }
+      .row .v { font-size: 52px; font-weight: 700; margin-top: 4px; }
+      .verdict { background: var(--ok-bg); color: var(--ok); border-radius: 24px; padding: 26px 34px; font-size: 58px; font-weight: 700; display: flex; align-items: center; gap: 22px; }
+      .check { width: 64px; height: 64px; border-radius: 50%; background: var(--starboard); flex: none; }
+
+      /* Scene 5 */
+      #s5-bg { position: absolute; inset: 0; background: var(--canvas); }
+      .navbanner { position: absolute; left: 260px; right: 260px; top: 150px; background: #6b4500; color: #fff; border-radius: 34px; padding: 44px 56px; display: flex; gap: 44px; align-items: center; box-shadow: var(--shadow); }
+      .navbanner .ic { width: 130px; height: 130px; flex: none; }
+      .navbanner .over { font-size: 38px; opacity: 0.92; }
+      .navbanner .instr { font-size: 84px; font-weight: 700; line-height: 1.05; letter-spacing: -1px; }
+      .navbanner .det { font-size: 34px; opacity: 0.92; margin-top: 6px; }
+      .stats { position: absolute; left: 260px; right: 260px; top: 640px; background: var(--surface); border-radius: 34px; box-shadow: var(--shadow); padding: 40px 30px; display: flex; justify-content: space-around; }
+      .stat { text-align: center; }
+      .stat .n { font-size: 64px; font-weight: 700; }
+      .stat .l { font-size: 30px; color: var(--muted); }
+
+      /* Outro */
+      #s6-bg { position: absolute; inset: 0; background: var(--canvas); }
+      #s6-veil { position: absolute; inset: 0; background: radial-gradient(ellipse 55% 60% at 50% 50%, rgba(242,245,250,0.97) 0%, rgba(242,245,250,0.85) 60%, rgba(242,245,250,0.4) 100%); }
+      .outro-line { font-size: 92px; font-weight: 700; letter-spacing: -1.5px; color: var(--ink); margin-top: 44px; text-align: center; max-width: 1600px; }
+      .outro-row { display: flex; align-items: center; gap: 36px; }
+      .outro-row .logo-box { width: 150px; height: 150px; border-radius: 34px; }
+      .outro-row .wordmark { font-size: 130px; margin-top: 0; }
+      .outro-sub { font-size: 44px; color: var(--muted); margin-top: 26px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="22">
+
+      <!-- Scene 1: het net -->
+      <section id="s1" class="clip" data-start="0" data-duration="3.6" data-track-index="1">
+        <div id="s1-inner" class="fill">
+          <div id="s1-mapwrap"><svg class="net" viewBox="0 0 1920 1080"><path id="wide-net" stroke="#7fa3d4" stroke-width="2.4" /><path id="wide-route" stroke-linecap="round" d="M584.5 415.4L576.5 412.3L564 407.6L560.5 406.7L558.3 406.7L557.3 406.8L554.7 407.4L542.8 411.3L537.4 413.1L534.3 414.1L531.8 414.2L529.8 414.2L528 413.8L523.5 412.7L511 409.6L504.7 408L499.8 406.8L497.7 406.3L496.8 405.7L494.2 405.8L490.8 406L487.4 407.6L486.8 408.3L483.1 413L479.9 418.9L473.5 431.4L471.3 435.3L464.7 440.6L461 443.7L463.6 455.8L466.3 459.2L465.6 462L465 464.8L453.7 478.9L452.4 481.4L449.6 485.4L448.6 486.7L445.5 491.5L444.6 492.5L441.3 495.8L433.6 505.6L431.6 507.9L430.7 509.8L429.5 512.8L427.9 514.7L423.9 517.6L419.4 520.6L416.4 522.8L415.3 523.7L413.7 525.1L412.3 526.9L410.5 529.6L409.4 532.3L409.1 533.6L408.8 534.8L408.8 538.4L408.1 540.6L406.3 543.1L405 545.3L404.5 548.4L403.9 554.8L402.7 560L402.6 563L403.6 567.2L403.7 570.8L402.6 575.6L403.1 578.4L403.7 579.8L404.2 581.2L404.4 582.2L404 583.5L401.1 588.3L400 590.1L396.6 593.8L396.3 594.8L396.2 595.2L396.2 596.4L396.4 597.9L397 600L397.2 600.7L397.5 602.7L398.7 612.2L398.6 616.3L396.8 620.7L396.3 623.6L396 628.8L395.4 633.1L395.3 635.4L392 634.3L388.9 634L386.2 633.2L382.9 632.8L377.8 632.5L373.2 632.4L372.1 632.4L372.1 633L372.2 633.3L372.3 633.5L373.4 634.8L373.5 635L373.5 635.1L373.4 635.2L373.4 635.3L371.4 637.1L371.3 637.3L371.2 637.5L370.9 639.4L370.9 639.6L370.2 639.6L369.2 639.4L368.5 639.2L368.6 639L368.9 636.7L366.6 637.1L364.8 637.5L364.4 637.5L360.3 638.3L360.5 634.7L360.1 634.8L359.8 634.9L359.4 634.9L353 636.7L346.3 638.6L344.5 639.1L343.4 639.3L341.3 639.5L339.8 639.5L339.4 639.5L337.9 639.3L337.1 638.9L333 636.9L329.2 635.3L328.8 635.2" stroke="#0a66ff" stroke-width="9" /></svg></div>
+          <div id="s1-veil"></div>
+          <div class="hook">
+            <div id="s1-l1" class="l1">Google Maps.</div>
+            <div id="s1-l2" class="l2">Maar dan voor het water.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 2: logo -->
+      <section id="s2" class="clip" data-start="3.4" data-duration="2.8" data-track-index="2">
+        <div id="s2-inner" class="fill">
+          <div id="s2-bg"></div>
+          <div class="center">
+            <div id="s2-logo" class="logo-box"><svg viewBox="0 0 64 64" class="logo-svg"><rect width="64" height="64" rx="14" fill="#0a66ff"/><circle cx="32" cy="32" r="21" fill="none" stroke="#fff" stroke-width="3"/><path d="M14 32a18 18 0 0 1 8-15" fill="none" stroke="#d33b3b" stroke-width="6" stroke-linecap="round"/><path d="M50 32a18 18 0 0 0-8-15" fill="none" stroke="#0a8f5b" stroke-width="6" stroke-linecap="round"/><path d="M32 12 L40 38 L32 33 L24 38 Z" fill="#fff"/></svg></div>
+            <div id="s2-word" class="wordmark">Vaarmaat</div>
+            <div id="s2-sub" class="subline">Routeplanner voor de pleziervaart</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 3: de route -->
+      <section id="s3" class="clip" data-start="6.0" data-duration="7.0" data-track-index="3">
+        <div id="s3-inner" class="fill">
+          <div id="s3-bg"></div>
+          <div id="s3-map" class="fill">
+            <svg class="net" viewBox="0 0 1920 1080">
+              <path id="zoom-net" stroke="#9db8dc" stroke-width="5" />
+              <path id="route-case" d="M1799.1 154.8L1770.4 143.7L1725.5 126.8L1713 123.7L1705.1 123.4L1701.5 124L1692.2 126.2L1649.3 139.9L1629.8 146.5L1618.9 150L1609.7 150.7L1602.7 150.4L1596.2 148.9L1579.9 145L1535 133.9L1512.4 128.4L1495 124L1487.5 122.1L1484 120L1474.7 120.3L1462.8 121.2L1450.4 126.8L1448.4 129.4L1434.8 146.1L1423.5 167.5L1400.6 212.3L1392.8 226.2L1369 245.3L1355.7 256.5L1364.8 300L1374.7 312.2L1372.2 322.1L1370.2 332.2L1329.3 382.9L1324.9 391.8L1314.7 406.3L1311.2 410.8L1300 427.9L1296.8 431.8L1284.8 443.5L1257.1 478.6L1250.2 487L1246.8 493.7L1242.5 504.5L1236.7 511.4L1222.4 521.7L1206.2 532.5L1195.5 540.4L1191.4 543.7L1185.7 548.9L1180.9 555L1174.2 564.8L1170.3 574.6L1169.2 579.2L1168.1 583.7L1168.1 596.6L1165.5 604.6L1159.3 613.5L1154.4 621.3L1152.8 632.5L1150.8 655.3L1146.3 674L1146 684.7L1149.7 699.8L1149.8 712.8L1146.1 730.1L1147.9 740L1149.9 745.1L1151.8 750.3L1152.5 753.6L1150.9 758.5L1140.7 775.8L1136.8 782L1124.3 795.4L1123.2 798.9L1122.9 800.5L1122.9 804.7L1123.8 810L1125.9 817.5L1126.6 820.1L1127.5 827.5L1132 861.4L1131.4 876.2L1125.1 892L1123.4 902.2L1122.4 921.1L1119.9 936.5L1119.6 944.7L1108 940.8L1096.7 939.8L1086.9 937L1075.3 935.3L1057 934.3L1040.3 934L1036.3 934.1L1036.5 936.3L1036.8 937.4L1037.1 937.9L1041 942.5L1041.3 943.2L1041.3 943.7L1041.2 944.2L1041 944.6L1034.1 950.8L1033.6 951.5L1033.3 952.4L1032.2 959.1L1032.2 960L1029.8 959.8L1025.9 959.1L1023.6 958.6L1023.8 957.8L1025.1 949.4L1016.8 951L1010.1 952.1L1008.9 952.4L994 955.3L994.8 942.2L993.3 942.6L992.1 942.8L990.9 943L968 949.4L943.9 956.4L937.5 958L933.4 958.7L925.8 959.5L920.3 959.6L918.9 959.4L913.6 958.9L910.9 957.3L896.2 950.2L882.5 944.5L880.9 944" stroke="#ffffff" stroke-width="22" />
+              <path id="route" d="M1799.1 154.8L1770.4 143.7L1725.5 126.8L1713 123.7L1705.1 123.4L1701.5 124L1692.2 126.2L1649.3 139.9L1629.8 146.5L1618.9 150L1609.7 150.7L1602.7 150.4L1596.2 148.9L1579.9 145L1535 133.9L1512.4 128.4L1495 124L1487.5 122.1L1484 120L1474.7 120.3L1462.8 121.2L1450.4 126.8L1448.4 129.4L1434.8 146.1L1423.5 167.5L1400.6 212.3L1392.8 226.2L1369 245.3L1355.7 256.5L1364.8 300L1374.7 312.2L1372.2 322.1L1370.2 332.2L1329.3 382.9L1324.9 391.8L1314.7 406.3L1311.2 410.8L1300 427.9L1296.8 431.8L1284.8 443.5L1257.1 478.6L1250.2 487L1246.8 493.7L1242.5 504.5L1236.7 511.4L1222.4 521.7L1206.2 532.5L1195.5 540.4L1191.4 543.7L1185.7 548.9L1180.9 555L1174.2 564.8L1170.3 574.6L1169.2 579.2L1168.1 583.7L1168.1 596.6L1165.5 604.6L1159.3 613.5L1154.4 621.3L1152.8 632.5L1150.8 655.3L1146.3 674L1146 684.7L1149.7 699.8L1149.8 712.8L1146.1 730.1L1147.9 740L1149.9 745.1L1151.8 750.3L1152.5 753.6L1150.9 758.5L1140.7 775.8L1136.8 782L1124.3 795.4L1123.2 798.9L1122.9 800.5L1122.9 804.7L1123.8 810L1125.9 817.5L1126.6 820.1L1127.5 827.5L1132 861.4L1131.4 876.2L1125.1 892L1123.4 902.2L1122.4 921.1L1119.9 936.5L1119.6 944.7L1108 940.8L1096.7 939.8L1086.9 937L1075.3 935.3L1057 934.3L1040.3 934L1036.3 934.1L1036.5 936.3L1036.8 937.4L1037.1 937.9L1041 942.5L1041.3 943.2L1041.3 943.7L1041.2 944.2L1041 944.6L1034.1 950.8L1033.6 951.5L1033.3 952.4L1032.2 959.1L1032.2 960L1029.8 959.8L1025.9 959.1L1023.6 958.6L1023.8 957.8L1025.1 949.4L1016.8 951L1010.1 952.1L1008.9 952.4L994 955.3L994.8 942.2L993.3 942.6L992.1 942.8L990.9 943L968 949.4L943.9 956.4L937.5 958L933.4 958.7L925.8 959.5L920.3 959.6L918.9 959.4L913.6 958.9L910.9 957.3L896.2 950.2L882.5 944.5L880.9 944" stroke="#0a66ff" stroke-width="12" />
+            </svg>
+            <div id="m-start" class="marker" style="background: var(--starboard)"></div>
+            <div id="m-end" class="marker" style="background: var(--port)"></div>
+            <div id="l-start" class="mlabel">Kaag</div>
+            <div id="l-end" class="mlabel">Leiden</div>
+          </div>
+          <div id="s3-card" class="app-card">
+            <div class="brandrow">
+              <div class="mini"><svg viewBox="0 0 64 64" class="logo-svg"><rect width="64" height="64" rx="14" fill="#0a66ff"/><circle cx="32" cy="32" r="21" fill="none" stroke="#fff" stroke-width="3"/><path d="M14 32a18 18 0 0 1 8-15" fill="none" stroke="#d33b3b" stroke-width="6" stroke-linecap="round"/><path d="M50 32a18 18 0 0 0-8-15" fill="none" stroke="#0a8f5b" stroke-width="6" stroke-linecap="round"/><path d="M32 12 L40 38 L32 33 L24 38 Z" fill="#fff"/></svg></div>
+              <div><div class="t1">Vaarmaat</div><div class="t2">Groene Hart &amp; Hollandse Plassen</div></div>
+              <div class="boatbtn">Mijn sloep</div>
+            </div>
+            <div class="field"><div class="pin">A</div><div class="ftext"><span class="ch ca">K</span><span class="ch ca">a</span><span class="ch ca">a</span><span class="ch ca">g</span><span class="ch ca">&nbsp;</span><span class="ch ca">(</span><span class="ch ca">K</span><span class="ch ca">a</span><span class="ch ca">a</span><span class="ch ca">g</span><span class="ch ca">d</span><span class="ch ca">o</span><span class="ch ca">r</span><span class="ch ca">p</span><span class="ch ca">)</span><span id="caret-a" class="caret"></span></div></div>
+            <div class="field"><div class="pin">B</div><div class="ftext"><span class="ch cb">L</span><span class="ch cb">e</span><span class="ch cb">i</span><span class="ch cb">d</span><span class="ch cb">e</span><span class="ch cb">n</span><span class="ch cb">&nbsp;</span><span class="ch cb">c</span><span class="ch cb">e</span><span class="ch cb">n</span><span class="ch cb">t</span><span class="ch cb">r</span><span class="ch cb">u</span><span class="ch cb">m</span><span id="caret-b" class="caret"></span></div></div>
+          </div>
+          <div id="s3-sheet" class="sheet">
+            <div class="big">1 u 55 min <span>(12,7 km)</span></div>
+            <div class="meta">bij 9 km/u · 12 bruggen · laagste brug 1,60 m</div>
+            <div class="chip">Snelste route</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 4: past hij eronder -->
+      <section id="s4" class="clip" data-start="12.8" data-duration="4.3" data-track-index="4">
+        <div id="s4-inner" class="fill">
+          <div id="s4-bg"><div class="s4-water"></div></div>
+          <div id="s4-title" class="s4-title">Past je boot eronder?</div>
+          <svg class="illu" viewBox="-60 0 1000 700">
+            <rect x="-60" y="470" width="1000" height="230" fill="#9db8dc" />
+            <rect x="-60" y="470" width="1000" height="10" fill="#8fb0da" />
+            <!-- brug: onderkant 1,60 m boven water (150 px per meter) -->
+            <rect x="280" y="175" width="440" height="56" rx="6" fill="#12203a" />
+            <rect x="250" y="175" width="60" height="305" fill="#5d6b85" />
+            <rect x="690" y="175" width="60" height="305" fill="#5d6b85" />
+            <line x1="225" y1="236" x2="225" y2="464" stroke="#d33b3b" stroke-width="4" stroke-dasharray="10 8" />
+            <line x1="205" y1="233" x2="245" y2="233" stroke="#d33b3b" stroke-width="4" />
+            <rect x="45" y="322" width="160" height="56" rx="12" fill="#ffffff" />
+            <text x="125" y="362" text-anchor="middle" font-family="Outfit" font-weight="700" font-size="36" fill="#12203a">1,60 m</text>
+            <g id="boat">
+              <!-- sloep: 1,40 m hoog, bovenkant op 470 - 210 = 260 -->
+              <path d="M-230 430 L200 430 L175 492 L-200 492 Z" fill="#ffffff" stroke="#12203a" stroke-width="6" />
+              <rect x="-100" y="330" width="170" height="100" rx="14" fill="#eef3ff" stroke="#12203a" stroke-width="6" />
+              <rect x="-80" y="262" width="12" height="70" fill="#12203a" />
+              <rect x="-150" y="262" width="210" height="12" rx="6" fill="#0a66ff" />
+            </g>
+          </svg>
+          <div class="rows">
+            <div id="row1" class="row"><div class="k">Schrijversbrug, Leiden</div><div class="v">doorvaarthoogte 1,60 m</div></div>
+            <div id="row2" class="row"><div class="k">Mijn sloep</div><div class="v">hoogte 1,40 m</div></div>
+            <div id="row3" class="verdict"><svg class="check" viewBox="0 0 64 64"><circle cx="32" cy="32" r="32" fill="#0a8f5b"/><path d="M18 33 L28 43 L47 22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>Past eronder.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scene 5: navigatie -->
+      <section id="s5" class="clip" data-start="16.9" data-duration="2.1" data-track-index="5">
+        <div id="s5-inner" class="fill">
+          <div id="s5-bg"></div>
+          <div id="s5-banner" class="navbanner">
+            <svg class="ic" viewBox="0 0 64 64"><rect x="4" y="40" width="56" height="16" rx="3" fill="#dfe9f5"/><path d="M8 38 L28 16" stroke="#e08a00" stroke-width="7" stroke-linecap="round"/><path d="M56 38 L36 16" stroke="#e08a00" stroke-width="7" stroke-linecap="round"/><circle cx="8" cy="12" r="5" fill="#d33b3b"/><circle cx="20" cy="12" r="5" fill="#0a8f5b"/></svg>
+            <div>
+              <div class="over">over 400 m</div>
+              <div class="instr">Wacht op opening Scheluwbrug</div>
+              <div class="det">beweegbare brug, Oude Rijn</div>
+            </div>
+          </div>
+          <div id="s5-stats" class="stats">
+            <div class="stat"><div class="n">8,6 km/u</div><div class="l">snelheid</div></div>
+            <div class="stat"><div class="n">6 min</div><div class="l">resterend</div></div>
+            <div class="stat"><div class="n">0,9 km</div><div class="l">afstand</div></div>
+            <div class="stat"><div class="n">13:38</div><div class="l">aankomst</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Outro -->
+      <section id="s6" class="clip" data-start="18.8" data-duration="3.2" data-track-index="6">
+        <div id="s6-inner" class="fill">
+          <div id="s6-bg"><svg class="net" viewBox="0 0 1920 1080"><path id="wide-net-2" stroke="#8fb0da" stroke-width="2" /></svg></div>
+          <div id="s6-veil"></div>
+          <div class="center">
+            <div class="outro-row">
+              <div id="s6-logo" class="logo-box"><svg viewBox="0 0 64 64" class="logo-svg"><rect width="64" height="64" rx="14" fill="#0a66ff"/><circle cx="32" cy="32" r="21" fill="none" stroke="#fff" stroke-width="3"/><path d="M14 32a18 18 0 0 1 8-15" fill="none" stroke="#d33b3b" stroke-width="6" stroke-linecap="round"/><path d="M50 32a18 18 0 0 0-8-15" fill="none" stroke="#0a8f5b" stroke-width="6" stroke-linecap="round"/><path d="M32 12 L40 38 L32 33 L24 38 Z" fill="#fff"/></svg></div>
+              <div id="s6-word" class="wordmark">Vaarmaat</div>
+            </div>
+            <div id="s6-line" class="outro-line">Hij leert je varen terwijl je vaart.</div>
+            <div id="s6-sub" class="outro-sub">Groene Hart &amp; Hollandse Plassen</div>
+          </div>
+        </div>
+      </section>
+
+      <audio id="bg-music" data-start="0" data-duration="22" data-track-index="10" data-volume="0.32" data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0},{"t":0.4,"v":1},{"t":20.3,"v":1},{"t":22,"v":0}]}]}' src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+      <audio id="key-a0" data-start="6.62" data-duration="0.4" data-track-index="11" data-volume="0.45" src="assets/sfx/keypress-003.wav"></audio>
+    <audio id="key-a2" data-start="6.72" data-duration="0.4" data-track-index="12" data-volume="0.45" src="assets/sfx/keypress-007.wav"></audio>
+    <audio id="key-a6" data-start="6.92" data-duration="0.4" data-track-index="13" data-volume="0.45" src="assets/sfx/keypress-012.wav"></audio>
+    <audio id="key-a8" data-start="7.02" data-duration="0.4" data-track-index="14" data-volume="0.45" src="assets/sfx/keypress-018.wav"></audio>
+    <audio id="key-a10" data-start="7.12" data-duration="0.4" data-track-index="15" data-volume="0.45" src="assets/sfx/keypress-003.wav"></audio>
+    <audio id="key-a12" data-start="7.22" data-duration="0.4" data-track-index="16" data-volume="0.45" src="assets/sfx/keypress-007.wav"></audio>
+    <audio id="key-a14" data-start="7.32" data-duration="0.4" data-track-index="17" data-volume="0.45" src="assets/sfx/keypress-012.wav"></audio>
+    <audio id="key-b0" data-start="7.62" data-duration="0.4" data-track-index="18" data-volume="0.45" src="assets/sfx/keypress-018.wav"></audio>
+    <audio id="key-b2" data-start="7.72" data-duration="0.4" data-track-index="19" data-volume="0.45" src="assets/sfx/keypress-003.wav"></audio>
+    <audio id="key-b4" data-start="7.82" data-duration="0.4" data-track-index="20" data-volume="0.45" src="assets/sfx/keypress-007.wav"></audio>
+    <audio id="key-b8" data-start="8.02" data-duration="0.4" data-track-index="21" data-volume="0.45" src="assets/sfx/keypress-012.wav"></audio>
+    <audio id="key-b10" data-start="8.12" data-duration="0.4" data-track-index="22" data-volume="0.45" src="assets/sfx/keypress-018.wav"></audio>
+    <audio id="key-b12" data-start="8.22" data-duration="0.4" data-track-index="23" data-volume="0.45" src="assets/sfx/keypress-003.wav"></audio>
+    <audio id="sfx-line2" data-start="1.02" data-duration="1.0" data-track-index="24" data-volume="0.6" src="assets/sfx/drop_001.ogg"></audio>
+    <audio id="sfx-logo" data-start="3.50" data-duration="1.0" data-track-index="25" data-volume="0.55" src="assets/sfx/switch_004.ogg"></audio>
+    <audio id="sfx-route" data-start="8.70" data-duration="1.0" data-track-index="26" data-volume="0.55" src="assets/sfx/drop_002.ogg"></audio>
+    <audio id="sfx-sheet" data-start="10.88" data-duration="1.0" data-track-index="27" data-volume="0.6" src="assets/sfx/drop_001.ogg"></audio>
+    <audio id="sfx-row1" data-start="13.07" data-duration="1.0" data-track-index="28" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+    <audio id="sfx-row2" data-start="14.16" data-duration="1.0" data-track-index="29" data-volume="0.5" src="assets/sfx/drop_002.ogg"></audio>
+    <audio id="sfx-ok" data-start="15.25" data-duration="1.0" data-track-index="30" data-volume="0.6" src="assets/sfx/click_002.ogg"></audio>
+    <audio id="sfx-nav" data-start="16.98" data-duration="1.0" data-track-index="31" data-volume="0.55" src="assets/sfx/impactSoft_medium_001.ogg"></audio>
+    <audio id="sfx-bell" data-start="19.06" data-duration="3" data-track-index="32" data-volume="0.5" src="assets/sfx/impactBell_heavy_000.ogg"></audio>
+    </div>
+
+    <script>
+      (function () {
+        var M = window.VM_MAP, AU = window.VM_AUDIO;
+        var toD = function (pts) { return pts.map(function (p, i) { return (i ? "L" : "M") + p[0] + " " + p[1]; }).join(""); };
+        document.getElementById("wide-net").setAttribute("d", M.wide);
+        document.getElementById("wide-net-2").setAttribute("d", M.wide);
+        document.getElementById("zoom-net").setAttribute("d", M.zoom);
+        var place = function (id, xy, dx, dy) { var el = document.getElementById(id); el.style.left = (xy[0] + (dx || 0)) + "px"; el.style.top = (xy[1] + (dy || 0)) + "px"; };
+        place("m-start", M.start); place("m-end", M.end);
+        place("l-start", M.start, -130, 30); place("l-end", M.end, 40, -70);
+
+        var routeEl = document.getElementById("route"), caseEl = document.getElementById("route-case");
+        var rLen = routeEl.getTotalLength();
+        [routeEl, caseEl].forEach(function (el) { el.style.strokeDasharray = rLen; el.style.strokeDashoffset = rLen; });
+        var wr = document.getElementById("wide-route"), wLen = wr.getTotalLength();
+        wr.style.strokeDasharray = wLen; wr.style.strokeDashoffset = wLen;
+
+        var tl = gsap.timeline({ paused: true });
+
+        // Scene 1: het net
+        tl.fromTo("#s1-mapwrap", { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 2.2, ease: "power2.out" }, 0);
+        tl.to(wr, { strokeDashoffset: 0, duration: 1.6, ease: "power1.inOut" }, 0.9);
+        tl.fromTo("#s1-l1", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 0.2);
+        tl.fromTo("#s1-l2", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 1.06); // beat-grid: 1.09s
+        tl.to("#s1-inner", { opacity: 0, duration: 0.25, ease: "power1.in" }, 3.35);
+
+        // Scene 2: logo
+        tl.fromTo("#s2-inner", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 3.4);
+        tl.fromTo("#s2-logo", { scale: 0.6, opacity: 0, rotation: -12 }, { scale: 1, opacity: 1, rotation: 0, duration: 0.6, ease: "back.out(1.6)" }, 3.52);
+        tl.fromTo("#s2-word", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 3.82); // beat-grid: 3.82s
+        tl.fromTo("#s2-sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, 4.2);
+        tl.to("#s2-inner", { opacity: 0, x: -120, duration: 0.3, ease: "power2.in" }, 5.9);
+
+        // Scene 3: de route
+        tl.fromTo("#s3-inner", { opacity: 0 }, { opacity: 1, duration: 0.25 }, 6.0);
+        tl.fromTo("#s3-map", { scale: 1.08, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.2, ease: "power2.out" }, 6.0);
+        tl.fromTo("#s3-card", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 6.1);
+        gsap.set(".ch", { opacity: 0 });
+        gsap.set(["#caret-a", "#caret-b"], { opacity: 0 });
+        tl.set("#caret-a", { opacity: 1 }, 6.62 - 0.05);
+        document.querySelectorAll(".ca").forEach(function (el, i) { tl.set(el, { opacity: 1 }, 6.62 + i * 0.05); });
+        tl.set("#caret-a", { opacity: 0 }, 7.62 - 0.05);
+        tl.set("#caret-b", { opacity: 1 }, 7.62 - 0.05);
+        document.querySelectorAll(".cb").forEach(function (el, i) { tl.set(el, { opacity: 1 }, 7.62 + i * 0.05); });
+        tl.set("#caret-b", { opacity: 0 }, 8.6);
+        tl.fromTo(["#m-start", "#l-start"], { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" }, 7.1);
+        tl.fromTo(["#m-end", "#l-end"], { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(2)" }, 8.1);
+        tl.to([routeEl, caseEl], { strokeDashoffset: 0, duration: 1.8, ease: "power1.inOut" }, 8.74); // beat-locked: 8.74s
+        tl.fromTo("#s3-sheet", { y: 120, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 10.93); // beat-locked: 10.93s
+        tl.to("#s3-inner", { opacity: 0, duration: 0.3, ease: "power1.in" }, 12.7);
+
+        // Scene 4: past hij eronder
+        tl.fromTo("#s4-inner", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 12.8);
+        tl.fromTo("#s4-title", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 12.85);
+        tl.fromTo("#row1", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, 13.11); // beat-grid: 13.11
+        tl.fromTo("#row2", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, 14.2);  // beat-grid: 14.20
+        tl.fromTo("#row3", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(1.8)" }, 15.29); // beat-grid: 15.29
+        tl.fromTo("#boat", { x: -120 }, { x: 560, duration: 2.4, ease: "power1.out" }, 12.9);
+        tl.to("#boat", { x: 640, duration: 1.6, ease: "none" }, 15.3);
+        tl.to("#s4-inner", { opacity: 0, duration: 0.25, ease: "power1.in" }, 16.85);
+
+        // Scene 5: navigatie
+        tl.fromTo("#s5-inner", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 16.9);
+        tl.fromTo("#s5-banner", { y: -260, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 16.97); // beat-locked: settles 17.47s
+        tl.fromTo("#s5-stats", { y: 160, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 17.2);
+        tl.to("#s5-inner", { opacity: 0, duration: 0.25, ease: "power1.in" }, 18.75);
+
+        // Outro
+        tl.fromTo("#s6-inner", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 18.8);
+        tl.fromTo("#s6-bg", { scale: 1.06 }, { scale: 1, duration: 3.2, ease: "none" }, 18.8);
+        tl.fromTo("#s6-logo", { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.7)" }, 19.08); // beat-locked: 19.10s
+        tl.fromTo("#s6-word", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.45, ease: "power3.out" }, 19.2);
+        tl.fromTo("#s6-line", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, 19.66); // beat-grid: 19.66
+        tl.fromTo("#s6-sub", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 20.2);
+
+        // Audio-reactive: bas laat de routegloed en logo-schaduw zacht ademen
+        var logos = [document.getElementById("s2-logo"), document.getElementById("s6-logo")];
+        for (var f = 0; f < AU.bass.length; f++) {
+          tl.call((function (b) {
+            return function () {
+              var g = (4 + b * 14).toFixed(1);
+              routeEl.style.filter = "drop-shadow(0 0 " + g + "px rgba(10,102,255,0.55))";
+              var s = "0 " + (6 + b * 10).toFixed(1) + "px " + (24 + b * 30).toFixed(1) + "px rgba(10,102,255," + (0.18 + b * 0.22).toFixed(2) + ")";
+              logos[0].style.boxShadow = s; logos[1].style.boxShadow = s;
+            };
+          })(AU.bass[f]), [], f / AU.fps);
+        }
+
+        window.__timelines["main"] = tl;
+      })();
+    </script>
+  </body>
+</html>
