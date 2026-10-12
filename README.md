@@ -58,7 +58,7 @@ De frontend werkt zonder backend. Accounts, synchronisatie, het Plus-abonnement,
 - `src/backend/` met inloggen via magic link, synchronisatie van tochten, logboek, favorieten, lesvoortgang en profiel, en de Plus-status.
 - `src/components/PlusGate.tsx` en `src/analytics.ts`.
 
-Lees `docs/LOVABLE.md` (stappenplan en projectkennis voor Lovable), `docs/BACKEND.md` (contracten van tabellen, functies en feeds) en `docs/APPSTORE.md` (de latere overstap naar de App Store en Google Play).
+Lees `docs/LOVABLE.md` (stappenplan en projectkennis voor Lovable), `docs/BACKEND.md` (contracten van tabellen, functies en feeds) en `docs/APPSTORE.md` (de latere overstap naar de App Store en Google Play). `docs/VERBETERPLAN.md` bevat de bevindingen van een volledige check en de user stories om de app professioneel te maken, met releaseplan.
 
 ## Deployen
 
@@ -121,7 +121,7 @@ scripts/
   screenshot.mjs     schermafbeeldingen met Playwright      icons.mjs       PNG-iconen uit de SVG
 mobile/                 app voor iOS en Android (Expo), zie mobile/README.md
 supabase/migrations/    databaseschema met RLS
-docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md
+docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md, VERBETERPLAN.md
 public/data/graph.json  voorberekende vaarwegengraaf
 public/data/pois.json   havens, aanlegplaatsen, voorzieningen, verboden
 ```
