@@ -17,6 +17,7 @@ interface Props {
   onFollow: () => void;
   voice: boolean;
   onVoice: () => void;
+  onEmergency: () => void;
 }
 
 /** Binnen deze afstand (m) van het eindpunt ben je aangekomen */
@@ -24,7 +25,7 @@ const ARRIVED = 30;
 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
 
-export default function NavPanel({ route, nav, destination, speedKmh, heading, gpsError, onStop, onRecalc, following, onFollow, voice, onVoice }: Props) {
+export default function NavPanel({ route, nav, destination, speedKmh, heading, gpsError, onStop, onRecalc, following, onFollow, voice, onVoice, onEmergency }: Props) {
   const next = nav?.next;
   const off = nav ? nav.offRoute > 120 : false;
   // alleen aangekomen als je ook echt op de route bent: ver ernaast valt je positie op het eindpunt
@@ -92,6 +93,7 @@ export default function NavPanel({ route, nav, destination, speedKmh, heading, g
         <div className="actions">
           {!following && <button onClick={onFollow}>📍 Volg mij</button>}
           <button onClick={onVoice} title="Gesproken instructies" aria-label={voice ? 'Gesproken instructies uitzetten' : 'Gesproken instructies aanzetten'} aria-pressed={voice}>{voice ? '🔊' : '🔇'}</button>
+          <button className="nav-sos" onClick={onEmergency} aria-label="Noodscherm openen">Nood</button>
           <button className="danger" onClick={onStop}>■ Stop</button>
         </div>
       </div>

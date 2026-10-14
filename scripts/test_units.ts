@@ -10,6 +10,10 @@ import { DEFAULT_PROFILE } from '../src/profile.ts';
 import { KNOWN_PLACES } from '../src/geocode.ts';
 import { buildLogEntry, startActiveTrip, addFix, toGpx } from '../src/logbook.ts';
 import { weatherKey } from '../src/weather.ts';
+import { formatDegMin, formatDecimalDeg } from '../src/geo.ts';
+import { describeLocation, maydayLines, shareText } from '../src/emergency.ts';
+import { onboardingStart, completeOnboarding, acceptDisclaimer, boatCheck, boatCheckText, chooseBoatType, markUnsure, DISCLAIMER_VERSION } from '../src/onboarding.ts';
+import { DEFAULT_SETTINGS } from '../src/store.ts';
 import type { LatLng, LogEntry } from '../src/types.ts';
 
 const g = new Graph(JSON.parse(fs.readFileSync(new URL('../public/data/graph.json', import.meta.url), 'utf8')));
@@ -80,4 +84,59 @@ test('GPX is geldig bij speciale tekens en bevat tijden', () => {
 test('weer: kleine verschuiving geeft dezelfde sleutel', () => {
   assert.equal(weatherKey([52.2166, 4.5934]), weatherKey([52.2171, 4.5941]));
   assert.notEqual(weatherKey([52.2166, 4.5934]), weatherKey([52.25, 4.5934]));
+});
+
+test('positie in graden en decimale minuten', () => {
+  assert.equal(formatDegMin([52.2166667, 4.5933333]), '52° 13,00′ N, 4° 35,60′ O');
+  assert.equal(formatDegMin([52.0001, 4.05]), '52° 00,01′ N, 4° 03,00′ O');
+  assert.equal(formatDegMin([51.9999999, -0.5]), '52° 00,00′ N, 0° 30,00′ W', 'afronding naar 60 minuten loopt door');
+  assert.equal(formatDecimalDeg([52.2166, 4.5934]), '52,21660° N, 4,59340° O');
+});
+
+test('noodscherm omschrijft waar je bent, ook zonder route', () => {
+  const pois = JSON.parse(fs.readFileSync(new URL('../public/data/pois.json', import.meta.url), 'utf8'));
+  const r = routeWaypoints(g, [place('Kaag'), place('Leiden centrum')], DEFAULT_PROFILE).routes[0];
+  const onWater = r.coords[Math.floor(r.coords.length * 0.8)];
+  const d = describeLocation(g, pois, onWater);
+  assert.ok(d.waterway, 'naam van de vaarweg');
+  assert.ok(d.near && d.near.dist < 5000, 'iets bekends in de buurt');
+  assert.match(d.near!.text, /^(bij |\d.* ten (noorden|noordoosten|oosten|zuidoosten|zuiden|zuidwesten|westen|noordwesten) van )/);
+  const lines = maydayLines('Mijn sloep', onWater, d);
+  assert.equal(lines[0], 'Mayday, Mayday, Mayday');
+  assert.equal(lines[1], 'Hier is Mijn sloep, Mijn sloep, Mijn sloep');
+  assert.ok(lines[3].includes(formatDegMin(onWater)));
+  assert.ok(shareText('Mijn sloep', onWater, d).includes('openstreetmap.org/?mlat='));
+  // ver weg van alles: geen vaarweg en niets in de buurt, maar wel een positie
+  const sea = describeLocation(g, pois, [52.6, 3.5]);
+  assert.equal(sea.waterway, null);
+  assert.equal(sea.near, null);
+  assert.ok(maydayLines('', null, null)[3].includes('[waar je bent]'));
+});
+
+test('onboarding: eerste start, overslaan, opnieuw bevestigen', () => {
+  assert.equal(onboardingStart(DEFAULT_SETTINGS), 'welkom');
+  const p = chooseBoatType(DEFAULT_PROFILE, 'motorboot');
+  assert.equal(p.name, 'Mijn motorjacht');
+  assert.equal(p.height, 2.6);
+  assert.equal(chooseBoatType({ ...DEFAULT_PROFILE, name: 'De Kraai' }, 'motorboot').name, 'De Kraai');
+  const done = completeOnboarding(DEFAULT_SETTINGS, p, false);
+  assert.equal(onboardingStart(done), null);
+  assert.equal(boatCheck(done, p), null);
+  // overgeslagen: de eerste route vraagt of het profiel klopt
+  const skipped = completeOnboarding(DEFAULT_SETTINGS, DEFAULT_PROFILE, true);
+  assert.equal(onboardingStart(skipped), null);
+  assert.equal(boatCheck(skipped, DEFAULT_PROFILE), 'skipped');
+  assert.equal(boatCheckText('skipped', DEFAULT_PROFILE), 'Je route is berekend voor een sloep van 1,40 m hoog. Klopt dat?');
+  assert.equal(boatCheck({ ...skipped, boatConfirmed: true }, DEFAULT_PROFILE), null);
+  // geschatte hoogte: standaard van het type, gemarkeerd, en de route blijft vindbaar
+  const unsure = markUnsure({ ...DEFAULT_PROFILE, height: 3 });
+  assert.equal(unsure.height, 1.4);
+  assert.equal(unsure.heightUnsure, true);
+  assert.equal(unsure.avoidUnknownBridges, false);
+  assert.equal(routeWaypoints(g, [place('Kaag'), place('Leiden centrum')], unsure).routes.length > 0, true);
+  assert.equal(boatCheck(completeOnboarding(DEFAULT_SETTINGS, unsure, false), unsure), 'unsure');
+  // nieuwe versie van de disclaimer: alleen die opnieuw
+  const old = { ...done, disclaimerVersion: DISCLAIMER_VERSION - 1 };
+  assert.equal(onboardingStart(old), 'afspraak');
+  assert.equal(onboardingStart(acceptDisclaimer(old)), null);
 });

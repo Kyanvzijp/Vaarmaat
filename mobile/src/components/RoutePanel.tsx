@@ -37,6 +37,10 @@ interface Props {
   tab: RouteTab;
   onTab: (t: RouteTab) => void;
   bottom: number;
+  /** vraag of het bootprofiel klopt (onboarding overgeslagen of hoogte geschat) */
+  boatCheck: { kind: 'skipped' | 'unsure'; text: string } | null;
+  onBoatEdit: () => void;
+  onBoatOk: () => void;
 }
 
 const MODES: [TravelMode, string][] = [
@@ -111,6 +115,15 @@ export default function RoutePanel(p: Props) {
         sub={`${long ? `${Math.ceil(r.duration / 3600 / p.hoursPerDay)} dagen bij ${p.hoursPerDay} u/dag` : `Aankomst rond ${arrivalStr}`} bij ${profile.speed} km/u${r.waitTime >= 300 ? ` · waarvan ${formatDuration(r.waitTime)} wachten` : ''} · ${r.bridges.length} bruggen · ${r.locks.length} sluizen${r.lowestBridge != null ? ` · laagste brug ${formatHeight(r.lowestBridge)}` : ''}`}
         onClose={p.onClose}
       />
+      {p.boatCheck && (
+        <View style={st.boatCheck} accessibilityLiveRegion="polite">
+          <Text style={[T.meta, { color: C.warn }]}>{p.boatCheck.text}</Text>
+          <Row>
+            <Btn small title="Boot instellen" onPress={p.onBoatEdit} />
+            <Btn small title={p.boatCheck.kind === 'skipped' ? 'Klopt' : 'Begrepen'} onPress={p.onBoatOk} />
+          </Row>
+        </View>
+      )}
       {routes.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {routes.map((alt, i) => (
@@ -203,6 +216,7 @@ export default function RoutePanel(p: Props) {
 
 const st = StyleSheet.create({
   access: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 12, backgroundColor: C.canvas },
+  boatCheck: { gap: 8, padding: 10, borderRadius: 12, backgroundColor: C.warnBg },
   alt: { padding: 10, borderRadius: 12, backgroundColor: C.canvas, borderWidth: 1, borderColor: C.line, minWidth: 140, gap: 2 },
   altActive: { backgroundColor: C.blueSoft, borderColor: C.blue },
   step: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.line },

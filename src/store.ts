@@ -58,6 +58,14 @@ export interface Settings {
   showPois: boolean;
   hoursPerDay: number;
   startTime: string;
+  /** onboarding afgerond (ISO), zie src/onboarding.ts */
+  onboardedAt?: string;
+  /** onboarding overgeslagen (ISO): de eerste route vraagt dan of het bootprofiel klopt */
+  onboardingSkippedAt?: string;
+  /** versie van de bevestigde disclaimer; bij een nieuwe versie vraagt de app opnieuw */
+  disclaimerVersion?: number;
+  /** de gebruiker heeft bevestigd dat het bootprofiel klopt */
+  boatConfirmed?: boolean;
 }
 export const DEFAULT_SETTINGS: Settings = { voice: true, prepMinutes: 20, showPois: true, hoursPerDay: 5, startTime: '10:00' };
 export const loadSettings = () => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(K.settings, {}) });

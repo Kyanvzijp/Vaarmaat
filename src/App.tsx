@@ -11,6 +11,9 @@ import PoiPanel from './components/PoiPanel';
 import ApproachCard, { type Approach } from './components/ApproachCard';
 import Toast, { type Notice, type NoticeKind } from './components/Toast';
 import TripNameDialog from './components/TripNameDialog';
+import Onboarding, { type OnboardingTarget } from './components/Onboarding';
+import EmergencyView from './components/EmergencyView';
+import { onboardingStart, completeOnboarding, acceptDisclaimer, boatCheck, boatCheckText, type OnboardingStep } from './onboarding';
 import { loadGraph, type Graph } from './graph';
 import { loadProfile, saveProfile, BOAT_TYPES } from './profile';
 import { locateOnRoute, placeKey, type NavState } from './navigation';
@@ -42,6 +45,10 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
   const [showProfile, setShowProfile] = useState(false);
   const [tab, setTab] = useState<Tab>('kaart');
   const [lessonToOpen, setLessonToOpen] = useState<string | null>(null);
+  const [moreTab, setMoreTab] = useState<'weer' | 'check' | 'log' | 'inst'>('weer');
+  /** onboarding bij de eerste start, of alleen de disclaimer als die is gewijzigd */
+  const [onboarding, setOnboarding] = useState<OnboardingStep | null>(() => onboardingStart(settings));
+  const [showEmergency, setShowEmergency] = useState(false);
 
   // planner
   const [waypoints, setWaypoints] = useState<(Place | null)[]>([null, null]);
@@ -197,13 +204,13 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
       if (document.visibilityState === 'hidden') {
         if (activeRef.current) saveActiveTrip(activeRef.current);
         if (!navigating) stopGps();
-      } else if (navigating || follow) {
+      } else if (navigating || follow || showEmergency) {
         startGps();
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [navigating, follow, startGps, stopGps]);
+  }, [navigating, follow, showEmergency, startGps, stopGps]);
   useEffect(() => () => {
     if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
   }, []);
@@ -293,8 +300,31 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
 
   const onUserMove = () => {
     setFollow(false);
-    if (!navigating) stopGps();
+    if (!navigating && !showEmergency) stopGps();
   };
+
+  const openEmergency = () => {
+    setShowEmergency(true);
+    startGps();
+  };
+  const closeEmergency = () => {
+    setShowEmergency(false);
+    if (!navigating && !follow) stopGps();
+  };
+
+  /** Vanuit de onboarding (huurboot) direct naar de vertrekchecklist of een les */
+  const openFromOnboarding = (target: OnboardingTarget) => {
+    setOnboarding(null);
+    if (target === 'checklist') {
+      setMoreTab('check');
+      setTab('meer');
+    } else {
+      setLessonToOpen(target);
+      setTab('leren');
+    }
+  };
+  const confirmBoat = () => setSettings((s) => (s.boatConfirmed ? s : { ...s, boatConfirmed: true }));
+  const check = boatCheck(settings, profile);
 
   const startNavigation = () => {
     startGps();
@@ -471,7 +501,16 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
         <button className="fab" onClick={() => { startGps(); setFollow(true); }} title={routes.length === 0 ? 'Mijn locatie' : 'Centreer op mijn locatie'} aria-label={routes.length === 0 ? 'Mijn locatie' : 'Centreer op mijn locatie'}>📍</button>
       )}
 
-      {showProfile && <ProfilePanel profile={profile} onChange={setProfile} onClose={() => setShowProfile(false)} />}
+      {showProfile && (
+        <ProfilePanel
+          profile={profile}
+          onChange={(p) => {
+            setProfile(p);
+            confirmBoat();
+          }}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
 
       {tab === 'kaart' && poi && !showProfile && (
         <PoiPanel
@@ -508,6 +547,9 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
           weatherPoint={from?.point ?? null}
           tab={routeTab}
           onTab={setRouteTab}
+          boatCheck={check ? { kind: check, text: boatCheckText(check, profile) } : null}
+          onBoatEdit={() => setShowProfile(true)}
+          onBoatOk={confirmBoat}
         />
       )}
 
@@ -526,6 +568,7 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
             onFollow={() => { startGps(); setFollow(true); }}
             voice={settings.voice}
             onVoice={() => setSettings((s) => ({ ...s, voice: !s.voice }))}
+            onEmergency={openEmergency}
           />
           {approach && tab === 'kaart' && (
             <ApproachCard
@@ -555,10 +598,32 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
       {tab === 'meer' && (
         <div className="overlay">
           {backToNav}
-          <MoreView settings={settings} onSettings={setSettings} profile={profile} onEditProfile={() => { setTab('kaart'); setShowProfile(true); }} weatherPoint={weatherPoint} notify={notify} />
+          <MoreView
+            key={moreTab}
+            initialTab={moreTab}
+            settings={settings}
+            onSettings={setSettings}
+            profile={profile}
+            onEditProfile={() => { setTab('kaart'); setShowProfile(true); }}
+            weatherPoint={weatherPoint}
+            notify={notify}
+            onEmergency={openEmergency}
+            onRestartOnboarding={() => { setTab('kaart'); setOnboarding('welkom'); }}
+          />
         </div>
       )}
 
+      {showEmergency && <EmergencyView gps={gps ? { pos: gps.pos, acc: gps.acc } : null} gpsError={gpsError} graph={graph} pois={pois} boatName={profile.name} onClose={closeEmergency} notify={notify} />}
+      {onboarding && (
+        <Onboarding
+          start={onboarding}
+          profile={profile}
+          onProfile={setProfile}
+          onAccept={(skipped) => setSettings((s) => (onboarding === 'afspraak' ? acceptDisclaimer(s) : completeOnboarding(s, profile, skipped)))}
+          onClose={() => setOnboarding(null)}
+          onOpen={openFromOnboarding}
+        />
+      )}
       <Toast notice={notice} onClose={closeNotice} />
       {naming != null && <TripNameDialog initial={naming} onCancel={() => setNaming(null)} onSave={saveTrip} />}
 
@@ -571,7 +636,7 @@ export default function App({ recovered = null }: { recovered?: LogEntry | null 
             ['meer', '⛵', 'Aan boord'],
           ] as [Tab, string, string][]
         ).map(([id, icon, label]) => (
-          <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); if (id !== 'leren') setLessonToOpen(null); }}>
+          <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); if (id !== 'leren') setLessonToOpen(null); if (id === 'meer') setMoreTab('weer'); }}>
             <span aria-hidden="true">{icon}</span>
             {label}
           </button>

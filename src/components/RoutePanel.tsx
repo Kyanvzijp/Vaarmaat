@@ -32,6 +32,10 @@ interface Props {
   weatherPoint: LatLng | null;
   tab: 'route' | 'stappen' | 'tocht' | 'aanleggen' | 'weer';
   onTab: (t: Props['tab']) => void;
+  /** vraag of het bootprofiel klopt (onboarding overgeslagen of hoogte geschat) */
+  boatCheck: { kind: 'skipped' | 'unsure'; text: string } | null;
+  onBoatEdit: () => void;
+  onBoatOk: () => void;
 }
 
 const MODES: [TravelMode, string][] = [
@@ -88,6 +92,15 @@ export default function RoutePanel(p: Props) {
         </div>
         <button className="icon-btn" onClick={p.onClose} aria-label="Route sluiten">×</button>
       </div>
+      {p.boatCheck && (
+        <div className="warn boat-check" role="status">
+          <span>{p.boatCheck.text}</span>
+          <span className="boat-check-actions">
+            <button onClick={p.onBoatEdit}>Boot instellen</button>
+            <button onClick={p.onBoatOk}>{p.boatCheck.kind === 'skipped' ? 'Klopt' : 'Begrepen'}</button>
+          </span>
+        </div>
+      )}
       {routes.length > 1 && (
         <div className="alts">
           {routes.map((alt, i) => (

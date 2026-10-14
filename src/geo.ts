@@ -80,3 +80,26 @@ export function compassName(deg: number): string {
   const names = ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'];
   return names[Math.round(deg / 45) % 8];
 }
+
+/** Eén coördinaat in graden en decimale minuten, zoals de Kustwacht hem vraagt: 52° 13,00′ N */
+function degMin(v: number, pos: string, neg: string): string {
+  const hemi = v >= 0 ? pos : neg;
+  let deg = Math.floor(Math.abs(v));
+  let min = Math.round((Math.abs(v) - deg) * 60 * 100) / 100;
+  if (min >= 60) {
+    deg += 1;
+    min = 0;
+  }
+  return `${deg}° ${min.toFixed(2).padStart(5, '0').replace('.', ',')}′ ${hemi}`;
+}
+
+/** Positie in graden en decimale minuten: 52° 13,00′ N, 4° 35,60′ O */
+export function formatDegMin(p: LatLng): string {
+  return `${degMin(p[0], 'N', 'Z')}, ${degMin(p[1], 'O', 'W')}`;
+}
+
+/** Positie in decimale graden met komma als decimaalteken: 52,21660° N, 4,59340° O */
+export function formatDecimalDeg(p: LatLng): string {
+  const f = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(5).replace('.', ',')}° ${v >= 0 ? pos : neg}`;
+  return `${f(p[0], 'N', 'Z')}, ${f(p[1], 'O', 'W')}`;
+}

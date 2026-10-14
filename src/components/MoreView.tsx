@@ -108,15 +108,27 @@ interface Props {
   onEditProfile: () => void;
   weatherPoint: LatLng | null;
   notify: Notify;
+  onEmergency: () => void;
+  onRestartOnboarding: () => void;
+  initialTab?: MoreTab;
 }
 
-export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify }: Props) {
-  const [tab, setTab] = useState<'weer' | 'check' | 'log' | 'inst'>('weer');
+type MoreTab = 'weer' | 'check' | 'log' | 'inst';
+
+export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify, onEmergency, onRestartOnboarding, initialTab = 'weer' }: Props) {
+  const [tab, setTab] = useState<MoreTab>(initialTab);
   return (
     <div className="page">
       <div className="page-head">
         <h2>Aan boord</h2>
       </div>
+      <button className="em-entry" onClick={onEmergency}>
+        <span className="em-entry-icon" aria-hidden="true">🆘</span>
+        <span>
+          <b>Nood</b>
+          <small>Bel 112, geef je positie door, Mayday voor de marifoon</small>
+        </span>
+      </button>
       <div className="subtabs">
         <button className={tab === 'weer' ? 'active' : ''} onClick={() => setTab('weer')}>🌤️ Weer</button>
         <button className={tab === 'check' ? 'active' : ''} onClick={() => setTab('check')}>✅ Checklists</button>
@@ -165,6 +177,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
               </span>
             </label>
           </div>
+          <button className="small-btn" onClick={onRestartOnboarding}>Introductie opnieuw doorlopen</button>
           <div className="about muted small">
             <p><b>Over Vaarmaat</b></p>
             <p>Vaarwegen, bruggen, sluizen, havens en aanlegplaatsen: © OpenStreetMap bijdragers (ODbL). Zeekaartsymbolen: OpenSeaMap. Weer: Open-Meteo. Regelkennis op basis van het Binnenvaartpolitiereglement en Varen doe je Samen.</p>

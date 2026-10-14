@@ -74,6 +74,10 @@ export interface BoatProfile {
   margin: number;
   /** vermijd bruggen met onbekende hoogte */
   avoidUnknownBridges: boolean;
+  /** huurboot: de app biedt na de onboarding uitleg voor wie voor het eerst vaart */
+  rental?: boolean;
+  /** hoogte is geschat ("Ik weet het niet precies"), nog niet gemeten */
+  heightUnsure?: boolean;
 }
 
 export interface RouteStep {

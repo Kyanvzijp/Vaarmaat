@@ -30,6 +30,9 @@ import MoreView from './components/MoreView';
 import PoiPanel from './components/PoiPanel';
 import ApproachCard, { type Approach } from './components/ApproachCard';
 import Toast from './components/Toast';
+import Onboarding, { type OnboardingTarget } from './components/Onboarding';
+import EmergencyView from './components/EmergencyView';
+import { onboardingStart, completeOnboarding, acceptDisclaimer, boatCheck, boatCheckText, type OnboardingStep } from '@shared/onboarding';
 import { Btn, IconBtn, Row } from './components/ui';
 import { C, RADIUS, SHADOW, T } from './theme';
 
@@ -70,6 +73,10 @@ function Main() {
   const [showProfile, setShowProfile] = useState(false);
   const [tab, setTab] = useState<Tab>('kaart');
   const [lessonToOpen, setLessonToOpen] = useState<string | null>(null);
+  const [moreTab, setMoreTab] = useState<'weer' | 'check' | 'log' | 'inst'>('weer');
+  /** onboarding bij de eerste start, of alleen de disclaimer als die is gewijzigd */
+  const [onboarding, setOnboarding] = useState<OnboardingStep | null>(() => onboardingStart(settings));
+  const [showEmergency, setShowEmergency] = useState(false);
   const [topbarH, setTopbarH] = useState(200);
 
   // planner
@@ -255,12 +262,12 @@ function Main() {
       if (state === 'background') {
         if (activeRef.current) saveActiveTrip(activeRef.current);
         if (!navigating) stopGps();
-      } else if (state === 'active' && (navigating || follow)) {
+      } else if (state === 'active' && (navigating || follow || showEmergency)) {
         startGps();
       }
     });
     return () => sub.remove();
-  }, [navigating, follow, startGps, stopGps]);
+  }, [navigating, follow, showEmergency, startGps, stopGps]);
 
   // navigatie-update bij nieuwe GPS positie: positie op route, spraak, nadering sluis/brug, spoor
   useEffect(() => {
@@ -348,8 +355,31 @@ function Main() {
 
   const onUserMove = () => {
     setFollow(false);
-    if (!navigating) stopGps();
+    if (!navigating && !showEmergency) stopGps();
   };
+
+  const openEmergency = () => {
+    setShowEmergency(true);
+    startGps();
+  };
+  const closeEmergency = () => {
+    setShowEmergency(false);
+    if (!navigating && !follow) stopGps();
+  };
+
+  /** Vanuit de onboarding (huurboot) direct naar de vertrekchecklist of een les */
+  const openFromOnboarding = (target: OnboardingTarget) => {
+    setOnboarding(null);
+    if (target === 'checklist') {
+      setMoreTab('check');
+      setTab('meer');
+    } else {
+      setLessonToOpen(target);
+      setTab('leren');
+    }
+  };
+  const confirmBoat = () => setSettings((s) => (s.boatConfirmed ? s : { ...s, boatConfirmed: true }));
+  const check = boatCheck(settings, profile);
 
   const startNavigation = () => {
     startGps();
@@ -440,6 +470,7 @@ function Main() {
   // Android terugknop: eerst panelen en tabbladen sluiten, dan pas de app
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (showEmergency) return closeEmergency(), true;
       if (naming != null) return setNaming(null), true;
       if (poi) return setPoi(null), true;
       if (showProfile) return setShowProfile(false), true;
@@ -551,7 +582,17 @@ function Main() {
         </Pressable>
       )}
 
-      {showProfile && onMap && <ProfilePanel profile={profile} onChange={setProfile} onClose={() => setShowProfile(false)} bottom={tabbarH} />}
+      {showProfile && onMap && (
+        <ProfilePanel
+          profile={profile}
+          onChange={(p) => {
+            setProfile(p);
+            confirmBoat();
+          }}
+          onClose={() => setShowProfile(false)}
+          bottom={tabbarH}
+        />
+      )}
 
       {onMap && poi && !showProfile && (
         <PoiPanel
@@ -590,6 +631,9 @@ function Main() {
           tab={routeTab}
           onTab={setRouteTab}
           bottom={tabbarH}
+          boatCheck={check ? { kind: check, text: boatCheckText(check, profile) } : null}
+          onBoatEdit={() => setShowProfile(true)}
+          onBoatOk={confirmBoat}
         />
       )}
 
@@ -611,6 +655,7 @@ function Main() {
             }}
             voice={settings.voice}
             onVoice={() => setSettings((s) => ({ ...s, voice: !s.voice }))}
+            onEmergency={openEmergency}
             top={insets.top + 8}
             bottom={insets.bottom}
           />
@@ -637,7 +682,20 @@ function Main() {
           )}
           {tab === 'tochten' && <TripsView trips={trips} onOpen={openTrip} onDelete={deleteTrip} onNew={() => { setWaypoints([null, null]); setRoutes([]); setTab('kaart'); }} />}
           {tab === 'leren' && <LessonsView key={lessonToOpen ?? 'list'} initial={lessonToOpen} />}
-          {tab === 'meer' && <MoreView settings={settings} onSettings={setSettings} profile={profile} onEditProfile={() => { setTab('kaart'); setShowProfile(true); }} weatherPoint={weatherPoint} notify={notify} />}
+          {tab === 'meer' && (
+            <MoreView
+              key={moreTab}
+              initialTab={moreTab}
+              settings={settings}
+              onSettings={setSettings}
+              profile={profile}
+              onEditProfile={() => { setTab('kaart'); setShowProfile(true); }}
+              weatherPoint={weatherPoint}
+              notify={notify}
+              onEmergency={openEmergency}
+              onRestartOnboarding={() => { setTab('kaart'); setOnboarding('welkom'); }}
+            />
+          )}
         </View>
       )}
 
@@ -659,6 +717,7 @@ function Main() {
               onPress={() => {
                 setTab(id);
                 if (id !== 'leren') setLessonToOpen(null);
+                if (id === 'meer') setMoreTab('weer');
               }}
             >
               <Text style={{ fontSize: 20, opacity: tab === id ? 1 : 0.6 }}>{icon}</Text>
@@ -668,6 +727,19 @@ function Main() {
         </View>
       )}
 
+      {showEmergency && <EmergencyView gps={gps ? { pos: gps.pos, acc: gps.acc } : null} gpsError={gpsError} graph={graph} pois={pois} boatName={profile.name} onClose={closeEmergency} notify={notify} top={insets.top} bottom={insets.bottom} />}
+      {onboarding && (
+        <Onboarding
+          start={onboarding}
+          profile={profile}
+          onProfile={setProfile}
+          onAccept={(skipped) => setSettings((s) => (onboarding === 'afspraak' ? acceptDisclaimer(s) : completeOnboarding(s, profile, skipped)))}
+          onClose={() => setOnboarding(null)}
+          onOpen={openFromOnboarding}
+          top={insets.top}
+          bottom={insets.bottom}
+        />
+      )}
       <Toast notice={notice} onClose={closeNotice} bottom={navigating ? insets.bottom + 150 : tabbarH + 12} />
       {naming != null && <TripNameModal key={naming} initial={naming} onCancel={() => setNaming(null)} onSave={(n) => { saveTrip(n); setNaming(null); }} />}
     </View>

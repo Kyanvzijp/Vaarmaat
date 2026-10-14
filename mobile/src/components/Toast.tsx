@@ -35,6 +35,7 @@ export default function Toast({ notice, onClose, bottom }: { notice: Notice | nu
 }
 
 const st = StyleSheet.create({
-  toast: { position: 'absolute', left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 14, paddingVertical: 4, borderRadius: 12, ...SHADOW },
+  // boven noodscherm en onboarding; op Android bepaalt elevation de volgorde
+  toast: { position: 'absolute', left: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 14, paddingVertical: 4, borderRadius: 12, ...SHADOW, zIndex: 950, elevation: 24 },
   btn: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
 });

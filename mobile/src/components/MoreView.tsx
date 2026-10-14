@@ -111,17 +111,27 @@ interface Props {
   onEditProfile: () => void;
   weatherPoint: LatLng | null;
   notify: Notify;
+  onEmergency: () => void;
+  onRestartOnboarding: () => void;
+  initialTab?: Sub;
 }
 
 type Sub = 'weer' | 'check' | 'log' | 'inst';
 
-export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify }: Props) {
-  const [tab, setTab] = useState<Sub>('weer');
+export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify, onEmergency, onRestartOnboarding, initialTab = 'weer' }: Props) {
+  const [tab, setTab] = useState<Sub>(initialTab);
   // vertrektijd pas opslaan als hij geldig is, zodat de dagindeling nooit met een halve tijd rekent
   const [time, setTime] = useState(settings.startTime);
   return (
     <ScrollView contentContainerStyle={page.page} keyboardShouldPersistTaps="handled">
       <H1>Aan boord</H1>
+      <Pressable accessibilityRole="button" onPress={onEmergency} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.errBg, borderRadius: 14, padding: 12, minHeight: 56 }, pressed && { opacity: 0.8 }]}>
+        <Text style={{ fontSize: 26 }}>🆘</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[T.label, { fontSize: 16, color: C.err }]}>Nood</Text>
+          <Text style={[T.meta, { color: C.err }]}>Bel 112, geef je positie door, Mayday voor de marifoon</Text>
+        </View>
+      </Pressable>
       <Row wrap>
         {([['weer', '🌤️ Weer'], ['check', '✅ Checklists'], ['log', '📒 Logboek'], ['inst', '⚙️ Instellingen']] as [Sub, string][]).map(([id, label]) => (
           <Chip key={id} dark active={tab === id} title={label} onPress={() => setTab(id)} />
@@ -147,6 +157,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
             }}
             placeholder="10:00"
           />
+          <Btn small title="Introductie opnieuw doorlopen" onPress={onRestartOnboarding} style={{ alignSelf: 'flex-start' }} />
           <View style={{ gap: 6 }}>
             <Text style={[T.label, { color: C.ink }]}>Over Vaarmaat</Text>
             <Muted>Vaarwegen, bruggen, sluizen, havens en aanlegplaatsen: © OpenStreetMap bijdragers (ODbL). Zeekaartsymbolen: OpenSeaMap. Weer: Open-Meteo. Regelkennis op basis van het Binnenvaartpolitiereglement en Varen doe je Samen.</Muted>

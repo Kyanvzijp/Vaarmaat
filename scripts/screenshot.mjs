@@ -11,6 +11,12 @@ p.on('console', m => { if (m.type() === 'error' && !m.text().includes('ERR_')) e
 const shot = (n) => p.screenshot({ path: `${dir}/${n}.png` });
 await p.goto('http://127.0.0.1:4173/');
 await p.waitForTimeout(2500);
+// onboarding bij de eerste start
+await shot('00a_welkom');
+await p.click('.onboarding button:has-text("Boot instellen")'); await p.waitForTimeout(200); await shot('00b_boot');
+await p.click('.onboarding button:has-text("Volgende")'); await p.waitForTimeout(200); await shot('00c_maten');
+await p.click('.onboarding button:has-text("Volgende")'); await p.waitForTimeout(200); await shot('00d_afspraak');
+await p.click('.onboarding button:has-text("Begrepen, laten we varen")'); await p.waitForTimeout(300);
 await shot('01_start');
 await p.fill('input[aria-label="Vertrekpunt"]', 'Kaag'); await p.waitForTimeout(500); await p.click('.search-results li >> nth=0');
 await p.fill('input[aria-label="Bestemming"]', 'Amsterdam'); await p.waitForTimeout(500); await p.click('.search-results li >> nth=0');
@@ -27,5 +33,8 @@ await p.click('.tabbar button:has-text("Aan boord")'); await p.waitForTimeout(50
 await p.click('text=Checklists'); await p.waitForTimeout(300); await shot('09_check');
 await p.click('text=Instellingen'); await p.waitForTimeout(300); await shot('10_settings');
 await p.click('.tabbar button:has-text("Tochten")'); await p.waitForTimeout(300); await shot('11_trips');
+await p.click('.tabbar button:has-text("Aan boord")'); await p.waitForTimeout(300);
+await p.click('.em-entry'); await p.waitForTimeout(1500); await shot('12_nood');
+await p.click('.em-close');
 console.log(JSON.stringify(errors, null, 1));
 await b.close();

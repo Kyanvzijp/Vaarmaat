@@ -20,6 +20,7 @@ interface Props {
   onFollow: () => void;
   voice: boolean;
   onVoice: () => void;
+  onEmergency: () => void;
   top: number;
   bottom: number;
 }
@@ -47,7 +48,7 @@ function Bar({ icon, bg, small, big, detail, action }: { icon: string; bg: strin
 /** Binnen deze afstand (m) van het eindpunt ben je aangekomen */
 const ARRIVED = 30;
 
-export default function NavPanel({ route, nav, destination, speedKmh, heading, gpsError, onStop, onRecalc, following, onFollow, voice, onVoice, top, bottom }: Props) {
+export default function NavPanel({ route, nav, destination, speedKmh, heading, gpsError, onStop, onRecalc, following, onFollow, voice, onVoice, onEmergency, top, bottom }: Props) {
   const next = nav?.next;
   const eta = nav ? new Date(nav.eta).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const off = nav ? nav.offRoute > 120 : false;
@@ -88,6 +89,7 @@ export default function NavPanel({ route, nav, destination, speedKmh, heading, g
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {!following && <NavBtn label="📍 Volg mij" onPress={onFollow} flex />}
           <NavBtn label={voice ? '🔊' : '🔇'} onPress={onVoice} a11y="Gesproken instructies aan of uit" />
+          <NavBtn label="Nood" onPress={onEmergency} sos a11y="Noodscherm openen" />
           <NavBtn label="■ Stop" onPress={onStop} danger flex />
         </View>
       </View>
@@ -104,10 +106,10 @@ function Stat({ v, l }: { v: string; l: string }) {
   );
 }
 
-function NavBtn({ label, onPress, danger, flex, a11y }: { label: string; onPress: () => void; danger?: boolean; flex?: boolean; a11y?: string }) {
+function NavBtn({ label, onPress, danger, sos, flex, a11y }: { label: string; onPress: () => void; danger?: boolean; sos?: boolean; flex?: boolean; a11y?: string }) {
   return (
-    <Pressable onPress={onPress} accessibilityLabel={a11y ?? label} style={({ pressed }) => [st.navBtn, danger && { backgroundColor: C.errBg }, flex && { flex: 1 }, pressed && { opacity: 0.75 }]}>
-      <Text style={[T.label, { fontSize: 16, color: danger ? C.err : C.ink }]}>{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y ?? label} style={({ pressed }) => [st.navBtn, danger && { backgroundColor: C.errBg }, sos && { backgroundColor: C.err, borderColor: C.err }, flex && { flex: 1 }, pressed && { opacity: 0.75 }]}>
+      <Text style={[T.label, { fontSize: 16, color: sos ? C.surface : danger ? C.err : C.ink }]}>{label}</Text>
     </Pressable>
   );
 }
