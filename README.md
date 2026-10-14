@@ -18,6 +18,8 @@ Wat de app doet:
 - Weer en wind via Open-Meteo met een vaaradvies (windkracht, vlagen, onweer, regen), zonsopkomst en zonsondergang.
 - Checklists (vertrek, sluis en brug, aankomst, seizoen) en een automatisch logboek van gevaren tochten met GPX export.
 - Kaartlagen: OpenStreetMap, satelliet en OpenSeaMap symbolen. Werkt als web app op telefoon (toevoegen aan beginscherm).
+- Eerste start: korte onboarding om je boot in te stellen (type, hoogte boven water, diepgang, snelheid) en een disclaimer die je één keer bevestigt.
+- Noodscherm, altijd gratis en offline: bel 112, je positie in graden en minuten met de vaarweg en een herkenningspunt, positie delen, Kustwacht en een ingevulde Mayday-tekst voor de marifoon.
 
 ## Lokaal draaien
 
@@ -105,6 +107,8 @@ src/
   trip.ts            tussenpunten, dagetappes en overnachtingsvoorstellen
   navigation.ts      positie op de route, resterende afstand en tijd
   logbook.ts         tocht vastleggen tijdens het varen, herstel na een crash, GPX-export
+  onboarding.ts      eerste start: teksten, disclaimerversie, status en de vraag of het bootprofiel klopt
+  emergency.ts       noodscherm: positie omschrijven, nummers en Mayday-tekst
   voice.ts           gesproken instructies
   weather.ts         Open-Meteo en vaaradvies
   pois.ts            havens en voorzieningen

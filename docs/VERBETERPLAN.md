@@ -195,13 +195,14 @@ Acceptatiecriteria:
 ### Epic ONB: eerste gebruik en vertrouwen
 
 #### ONB-01 Bootprofiel instellen bij eerste start
+**Status: gebouwd in 2.5**, web en app. Afwijkingen: de huurboot krijgt nog niet de module "Eerste keer varen" (dat is LEER-02), maar een scherm met de vertrekchecklist en de lessen Voorrang en Veiligheid. Boottypes hebben nog emoji in plaats van illustraties (DS-01).
 **Als** nieuwe gebruiker (Sanne, Kees) **wil ik** bij de eerste start in een paar stappen mijn boot instellen **zodat** de app alleen routes voorstelt waar mijn boot echt onderdoor en doorheen past.
 Prioriteit: Must · Omvang: M · Gratis
 
 Acceptatiecriteria:
 - Eerste start toont drie schermen: (1) welkom met de belofte in één zin, (2) boottype kiezen met illustraties, (3) hoogte boven water, diepgang en kruissnelheid bevestigen, met de standaardwaarden van het type ingevuld.
 - Bij hoogte staat een uitleg met een kleine tekening: "Meet van de waterlijn tot het hoogste punt: kap, mast, antenne of bimini."
-- "Ik weet het niet precies" kiest de standaard van het type en zet "Vermijd bruggen met onbekende hoogte" aan; de app herinnert er bij de eerste route aan.
+- "Ik weet het niet precies" kiest de standaard van het type en markeert de hoogte als geschat; de app herinnert er bij de eerste route aan. (Eerst stond hier ook "zet Vermijd bruggen met onbekende hoogte aan". Bij het bouwen bleek dat met de huidige data maar 1 van de 8 testroutes voor een sloep en 0 van de 8 voor een motorjacht dan nog een route heeft. Pas na DATA-01 is dat een redelijke standaard.)
 - Overslaan kan, maar dan toont de eerste route een gele balk "Je route is berekend voor een sloep van 1,40 m. Klopt dat?" met de knop "Boot instellen".
 - Huurmodus: vraag "Is dit een huurboot?"; zo ja, toont de app na de onboarding de korte module "Eerste keer varen" (LEER-02).
 - Na afronden staat er een vinkje in het profiel `onboardedAt`; opnieuw doorlopen kan via Aan boord, Instellingen.
@@ -209,6 +210,7 @@ Acceptatiecriteria:
 - Raakt: nieuw `src/components/Onboarding.tsx`, `mobile/src/components/Onboarding.tsx`, `src/profile.ts`, `src/store.ts`.
 
 #### ONB-02 Disclaimer en verantwoordelijkheid bevestigen
+**Status: gebouwd in 2.5.** De links naar voorwaarden en privacyverklaring wachten op JUR-01; tot die tijd verwijst het scherm naar Aan boord, Instellingen, Over Vaarmaat.
 **Als** aanbieder **wil ik** dat de gebruiker één keer bevestigt dat de app een hulpmiddel is **zodat** de verantwoordelijkheid helder is en we juridisch afgedekt zijn.
 Prioriteit: Must · Omvang: S · Gratis
 
@@ -241,6 +243,7 @@ Acceptatiecriteria:
 ### Epic VEI: veiligheid aan boord (altijd gratis en offline)
 
 #### VEI-01 Noodscherm met positie
+**Status: gebouwd in 2.5**, web en app. Te openen vanuit Aan boord (bovenaan) en met een vaste knop Nood in de navigatiebalk. KNRM Helpt opent nu de website van de KNRM; de deeplink naar de app nog controleren. Laat de teksten over marifoonkanalen en de Mayday-volgorde voor de release nakijken door iemand met een marifooncertificaat of door de KNRM.
 **Als** schipper in nood **wil ik** met twee tikken mijn positie en de juiste nummers zien **zodat** ik snel hulp kan halen en precies kan zeggen waar ik ben.
 Prioriteit: Must · Omvang: M · Gratis, offline
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.5 (14 oktober 2026)
+Eerste gebruik en veiligheid uit `docs/VERBETERPLAN.md` (ONB-01, ONB-02, VEI-01), in de webapp en de app.
+- Onboarding bij de eerste start: welkom, boottype (met de vraag of het een huurboot is), hoogte boven water met tekening, diepgang en kruissnelheid. "Ik weet het niet precies" neemt de standaardmaten van het type en markeert de hoogte als geschat. Opnieuw doorlopen via Aan boord, Instellingen.
+- Disclaimer "Goed om te weten" met drie punten, één keer bevestigen; de versie wordt bewaard en bij een nieuwe versie vraagt de app alleen die stap opnieuw. Ook bij overslaan.
+- Overgeslagen of geschat: de routesheet vraagt "Je route is berekend voor een sloep van 1,40 m hoog. Klopt dat?" of herinnert aan de geschatte hoogte, met Boot instellen.
+- Huurboot: na de onboarding een scherm "Eerste keer varen?" met de vertrekchecklist en de lessen Voorrang en Veiligheid.
+- Noodscherm, altijd gratis en zonder internet: Bel 112, positie in graden en decimale minuten en in decimale graden, de vaarweg en het dichtstbijzijnde herkenningspunt ("80 m ten westen van Sumatrabrug"), positie delen of per sms, Kustwacht 0900 0111, KNRM en een ingevulde Mayday-tekst voor de marifoon. Te openen vanuit Aan boord en met de knop Nood tijdens navigatie.
+- Focusring voor toetsenbordgebruik, unit-tests voor positie, omschrijving, Mayday en onboarding.
+
 ## 2.4 (14 oktober 2026)
 Bugfixes uit `docs/VERBETERPLAN.md` (FIX-00 tot en met FIX-17), in de webapp en de app.
 - Navigatie: een mislukte herberekening laat de oude route staan in plaats van de navigatie te laten vastlopen; de Stop-knop is er altijd. Vanuit Leren, Tochten of Aan boord kom je tijdens navigatie terug met "Terug naar navigatie".
