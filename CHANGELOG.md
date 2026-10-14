@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.4 (14 oktober 2026)
+Bugfixes uit `docs/VERBETERPLAN.md` (FIX-00 tot en met FIX-17), in de webapp en de app.
+- Navigatie: een mislukte herberekening laat de oude route staan in plaats van de navigatie te laten vastlopen; de Stop-knop is er altijd. Vanuit Leren, Tochten of Aan boord kom je tijdens navigatie terug met "Terug naar navigatie".
+- Aankomst is zichtbaar in de instructiebalk en als melding, en alleen als je echt op de route bent (ver ernaast viel je positie op het eindpunt).
+- Resterende tijd en aankomsttijd springen niet meer omhoog als je stilligt voor een sluis of brug.
+- Meldingen voor sluizen, bruggen en afslagen hebben een sleutel per plek, zodat ze na herberekenen niet opnieuw komen.
+- Tussenpunten zijn een eigen stap ("Tussenpunt 1: Leiden centrum") in plaats van "Tussenstop 1: via via".
+- GPS stopt na de navigatie, als je de kaart niet meer laat volgen en als de app naar de achtergrond gaat; "Mijn locatie" als vertrekpunt vraagt één positie.
+- Logboek: de tocht die je vaart wordt elke 15 seconden bewaard en na een crash of afsluiten alsnog in het logboek gezet; GPX met tijd per punt en geldige tekens; GPS-sprongen tellen niet als topsnelheid. Nieuwe kolom `logs.track_times` (migratie `20261014120000_log_track_times.sql`).
+- Meldingen onderin met soort (succes, info, fout) die vanzelf verdwijnen; wissen van een tocht of logboekitem kan ongedaan worden gemaakt; naam van een tocht via een eigen dialoog in plaats van `window.prompt`.
+- Routesheet: Start navigatie staat vast onderaan en is ook op kleine telefoons zonder scrollen zichtbaar; alternatieven op één regel; subtabs lopen niet meer buiten beeld.
+- Dagindeling volgt de route en gaat ook weer uit, tenzij je hem zelf omzet.
+- Weer: geen technische foutmelding meer, wel een knop Opnieuw; haalt het weer niet elke seconde opnieuw op als GPS aan staat.
+- Zoeken: bekende bestemmingen direct, adressen pas als je stopt met typen en nooit vaker dan eens per seconde (gebruiksbeleid Nominatim); zoekvelden heten voor schermlezers "Vertrekpunt", "Bestemming" en "Tussenpunt 1".
+- Code: gedeelde `src/logbook.ts`, `src/notice.ts`, `src/stepIcons.ts`; unit-tests met `npm run test:units` (ook in CI); lint zonder waarschuwingen; ongebruikte assets verwijderd.
+
 ## 2.3 (4 september 2026)
 - Routering: de zoektocht begint en eindigt op het geprojecteerde punt op de vaarweg in plaats van de dichtstbijzijnde knoop; bruggen en sluizen staan op hun werkelijke positie langs de route in plaats van op het midden van een segment.
 - Realistische tijden: 90 procent van de kruissnelheid, 6 km/u in grachten en naamloze sloten, tijd per vaste brug, extra wachttijd bij lage of naamloze beweegbare bruggen, aanmeren voor sluizen. Vaartijd en wachttijd apart in het resultaat en in de samenvatting.

@@ -34,6 +34,7 @@ Controles die groen moeten blijven:
 npm run build        # TypeScript strict en Vite
 npm run lint         # oxlint
 npm run test:routes  # bekende routes (Kaag naar Leiden, Alphen naar Amsterdam, ...)
+npm run test:units   # unit-tests: navigatie, tussenpunten, logboek en GPX
 npm run preview & npm run screenshot   # schermafbeeldingen op telefoon en desktop, geen console-errors
 ```
 
@@ -103,6 +104,7 @@ src/
   lastmile.ts        stuk over land: loopafstand en links naar loop-, auto- en ov-routes
   trip.ts            tussenpunten, dagetappes en overnachtingsvoorstellen
   navigation.ts      positie op de route, resterende afstand en tijd
+  logbook.ts         tocht vastleggen tijdens het varen, herstel na een crash, GPX-export
   voice.ts           gesproken instructies
   weather.ts         Open-Meteo en vaaradvies
   pois.ts            havens en voorzieningen
@@ -118,6 +120,7 @@ scripts/
   fetch_pois.mjs     havens en bediening ophalen build_pois.py  POI's bouwen en bedieningsinfo koppelen
   refine_graph.py    dubbele bruggen samenvoegen (na build_graph.py)
   test_route.ts      routes controleren in de terminal, met regressiecontrole op bekende routes
+  test_units.ts      unit-tests voor gedeelde logica (node:test via tsx)
   screenshot.mjs     schermafbeeldingen met Playwright      icons.mjs       PNG-iconen uit de SVG
 mobile/                 app voor iOS en Android (Expo), zie mobile/README.md
 supabase/migrations/    databaseschema met RLS

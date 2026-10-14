@@ -48,6 +48,8 @@ Verhouding tot de andere documenten: `docs/SPEC.md` blijft leidend voor de featu
 
 ### 3.1 Bugs en slordigheden (direct oplossen)
 
+**Status: opgelost in 2.4 (14 oktober 2026)**, in web en app, zie `CHANGELOG.md`. Bij het testen kwamen er twee bij: aankomst werd gemeld als je ver van de route was (je positie viel dan op het eindpunt), en na "+ Tussenpunt" kon een oude blur-timer de zoeklijst van het nieuwe veld sluiten. Ook die zijn opgelost.
+
 | ID | Wat | Waar | Gevolg |
 | --- | --- | --- | --- |
 | FIX-00 | Mislukt herberekenen tijdens navigatie (bijvoorbeeld positie te ver van het water) maakt de route leeg; navigatiepaneel, Stop-knop en tabbalk verdwijnen en je zit vast | `src/App.tsx:291` en `:452`, `src/index.css:190`; app: `mobile/src/App.tsx:339` | Alleen herladen of de app afsluiten helpt; ernstigste bug |
