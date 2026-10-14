@@ -6,22 +6,9 @@ import { StagesList } from './TripsView';
 import { POI_META, poiTitle } from '../pois';
 import WeatherCard from './WeatherCard';
 import { OpsFacts } from './ApproachCard';
+import { STEP_ICONS } from '../stepIcons';
+import { useNow } from '../useNow';
 
-export const STEP_ICONS: Record<RouteStep['kind'], string> = {
-  depart: '🚩',
-  left: '↰',
-  right: '↱',
-  slight_left: '↖',
-  slight_right: '↗',
-  sharp_left: '⬑',
-  sharp_right: '⬏',
-  straight: '↑',
-  uturn: '↶',
-  bridge: '🌉',
-  movable_bridge: '⏳',
-  lock: '🔒',
-  arrive: '🏁',
-};
 
 interface Props {
   routes: RouteResult[];
@@ -80,15 +67,16 @@ export function AccessCard({ leg, kind }: { leg: LandLeg; kind: 'start' | 'end' 
 export default function RoutePanel(p: Props) {
   const { routes, selected, profile } = p;
   const r = routes[selected];
+  const now = useNow();
   if (!r) return null;
-  const arrival = new Date(Date.now() + r.duration * 1000);
+  const arrival = new Date(now + r.duration * 1000);
   const arrivalStr = arrival.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
   const fits = r.lowestBridge == null || r.lowestBridge >= profile.height + profile.margin;
   const long = r.duration > p.hoursPerDay * 3600;
   const opsBridges = r.bridges.filter((b) => b.movable);
   return (
     <div className={`sheet route ${p.expanded ? 'expanded' : ''}`}>
-      <div className="sheet-grip" onClick={p.onToggle} />
+      <button className="sheet-grip" onClick={p.onToggle} aria-label={p.expanded ? 'Minder tonen' : 'Meer tonen'} aria-expanded={p.expanded} />
       <div className="sheet-head">
         <div>
           <h2>{formatDuration(r.duration)} <span className="muted">({formatDistance(r.distance)})</span></h2>
@@ -117,10 +105,6 @@ export default function RoutePanel(p: Props) {
       ))}
       {r.access?.start && <AccessCard leg={r.access.start} kind="start" />}
       {r.access?.end && <AccessCard leg={r.access.end} kind="end" />}
-      <div className="actions">
-        <button className="primary" onClick={p.onStart}>▶ Start navigatie</button>
-        <button onClick={p.onSaveTrip}>💾 Bewaren</button>
-      </div>
       <div className="subtabs small">
         {(['route', 'stappen', 'tocht', 'aanleggen', 'weer'] as const).map((t) => (
           <button key={t} className={p.tab === t ? 'active' : ''} onClick={() => { p.onTab(t); if (!p.expanded) p.onToggle(); }}>
@@ -140,7 +124,7 @@ export default function RoutePanel(p: Props) {
                   const obj = s.kind === 'lock' ? r.locks.find((l) => Math.abs(l.at - s.at) < 1) : r.bridges.find((b) => Math.abs(b.at - s.at) < 1);
                   return (
                     <li key={i} onClick={() => p.onStepClick(s)}>
-                      <span className="step-icon">{STEP_ICONS[s.kind]}</span>
+                      <span className="step-icon" aria-hidden="true">{STEP_ICONS[s.kind]}</span>
                       <div>
                         <b>{s.text.replace('Wacht op opening ', '').replace('Schut door ', '')}</b>
                         <small className="muted">{formatDistance(s.at)}{s.detail ? ` · ${s.detail}` : ''}</small>
@@ -159,7 +143,7 @@ export default function RoutePanel(p: Props) {
         <ol className="steps">
           {r.steps.map((s, i) => (
             <li key={i} className={s.kind} onClick={() => p.onStepClick(s)}>
-              <span className="step-icon">{STEP_ICONS[s.kind]}</span>
+              <span className="step-icon" aria-hidden="true">{STEP_ICONS[s.kind]}</span>
               <span className="step-body">
                 <b>{s.text}</b>
                 {s.detail && <small>{s.detail}</small>}
@@ -205,6 +189,11 @@ export default function RoutePanel(p: Props) {
       )}
 
       {p.tab === 'weer' && <WeatherCard point={p.weatherPoint} label="Weer bij vertrek" compact />}
+      {/* vast onderaan de sheet, zodat de belangrijkste actie altijd in beeld is */}
+      <div className="actions sheet-footer">
+        <button className="primary" onClick={p.onStart}>▶ Start navigatie</button>
+        <button onClick={p.onSaveTrip}>💾 Bewaren</button>
+      </div>
     </div>
   );
 }

@@ -3,12 +3,14 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NavState } from '@shared/navigation';
 import type { RouteResult } from '@shared/types';
 import { compassName, formatDistance, formatDuration, formatSpeed } from '@shared/geo';
-import { STEP_ICONS } from '../stepIcons';
+import { STEP_ICONS } from '@shared/stepIcons';
 import { C, SHADOW, T } from '../theme';
 
 interface Props {
-  route: RouteResult;
+  /** kan tijdelijk ontbreken; de Stop-knop blijft dan altijd beschikbaar */
+  route: RouteResult | undefined;
   nav: NavState | null;
+  destination: string;
   speedKmh: number | null;
   heading: number | null;
   gpsError: string | null;
@@ -34,7 +36,7 @@ function Bar({ icon, bg, small, big, detail, action }: { icon: string; bg: strin
         {detail && <Text style={st.barSmall}>{detail}</Text>}
       </View>
       {action && (
-        <Pressable style={st.barBtn} onPress={action.onPress}>
+        <Pressable style={st.barBtn} onPress={action.onPress} accessibilityRole="button">
           <Text style={[T.label, { color: C.ink }]}>{action.label}</Text>
         </Pressable>
       )}
@@ -42,18 +44,28 @@ function Bar({ icon, bg, small, big, detail, action }: { icon: string; bg: strin
   );
 }
 
-export default function NavPanel({ route, nav, speedKmh, heading, gpsError, onStop, onRecalc, following, onFollow, voice, onVoice, top, bottom }: Props) {
+/** Binnen deze afstand (m) van het eindpunt ben je aangekomen */
+const ARRIVED = 30;
+
+export default function NavPanel({ route, nav, destination, speedKmh, heading, gpsError, onStop, onRecalc, following, onFollow, voice, onVoice, top, bottom }: Props) {
   const next = nav?.next;
-  const eta = nav ? new Date(Date.now() + nav.remainingTime * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const eta = nav ? new Date(nav.eta).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const off = nav ? nav.offRoute > 120 : false;
-  const then = nav && next && !off ? route.steps[route.steps.indexOf(next) + 1] : undefined;
+  // alleen aangekomen als je ook echt op de route bent: ver ernaast valt je positie op het eindpunt
+  const arrived = !!nav && !off && nav.remaining < ARRIVED;
+  const leg = route?.access?.end;
+  const then = route && nav && next && !off && !arrived ? route.steps[route.steps.indexOf(next) + 1] : undefined;
   return (
     <>
-      <View style={[st.top, { top }]}>
-        {gpsError ? (
+      <View style={[st.top, { top }]} accessibilityLiveRegion="polite">
+        {!route ? (
+          <Bar icon="⚠️" bg="#7a1f1f" big="Geen route" detail="Herbereken vanaf je positie of stop de navigatie" action={{ label: 'Herbereken', onPress: onRecalc }} />
+        ) : gpsError ? (
           <Bar icon="⚠️" bg="#7a1f1f" big="Geen GPS" detail={gpsError} />
         ) : !nav ? (
           <Bar icon="📡" bg={C.ink} big="Wachten op GPS positie…" detail="Zorg dat locatie is toegestaan" />
+        ) : arrived ? (
+          <Bar icon="🏁" bg={C.starboard} big="Je bent aangekomen" detail={leg ? `Nog ${formatDistance(leg.walkDistance)} lopen naar ${leg.name}` : destination} action={{ label: 'Klaar', onPress: onStop }} />
         ) : off ? (
           <Bar icon="↩️" bg="#7a1f1f" big={`Je bent ${formatDistance(nav.offRoute)} van de route`} detail="Vaar terug naar de route of herbereken" action={{ label: 'Herbereken', onPress: onRecalc }} />
         ) : (

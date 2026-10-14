@@ -9,7 +9,8 @@ import WeatherCard from './WeatherCard';
 import { OpsFacts } from './ApproachCard';
 import { Btn, Card, Chip, Muted, NumField, P, Row, Sheet, SheetHead, Toggle, Warn } from './ui';
 import { C, T } from '../theme';
-import { STEP_ICONS } from '../stepIcons';
+import { STEP_ICONS } from '@shared/stepIcons';
+import { useNow } from '../useNow';
 
 export type RouteTab = 'route' | 'stappen' | 'tocht' | 'aanleggen' | 'weer';
 
@@ -80,8 +81,9 @@ function StepIcon({ kind }: { kind: RouteStep['kind'] }) {
 export default function RoutePanel(p: Props) {
   const { routes, selected, profile } = p;
   const r = routes[selected];
+  const now = useNow();
   if (!r) return null;
-  const arrivalStr = new Date(Date.now() + r.duration * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  const arrivalStr = new Date(now + r.duration * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
   const fits = r.lowestBridge == null || r.lowestBridge >= profile.height + profile.margin;
   const long = r.duration > p.hoursPerDay * 3600;
   const opsSteps = r.steps.filter((s) => s.kind === 'movable_bridge' || s.kind === 'lock');
@@ -89,7 +91,17 @@ export default function RoutePanel(p: Props) {
     t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer';
 
   return (
-    <Sheet expanded={p.expanded} onToggle={p.onToggle} bottom={p.bottom}>
+    <Sheet
+      expanded={p.expanded}
+      onToggle={p.onToggle}
+      bottom={p.bottom}
+      footer={
+        <Row>
+          <Btn kind="primary" title="▶ Start navigatie" onPress={p.onStart} flex />
+          <Btn title="💾 Bewaren" onPress={p.onSaveTrip} />
+        </Row>
+      }
+    >
       <SheetHead
         title={
           <Text style={[T.h1, { color: C.ink }]}>
@@ -116,10 +128,6 @@ export default function RoutePanel(p: Props) {
       ))}
       {r.access?.start && <AccessCard leg={r.access.start} kind="start" />}
       {r.access?.end && <AccessCard leg={r.access.end} kind="end" />}
-      <Row>
-        <Btn kind="primary" title="▶ Start navigatie" onPress={p.onStart} flex />
-        <Btn title="💾 Bewaren" onPress={p.onSaveTrip} />
-      </Row>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
         {(['route', 'stappen', 'tocht', 'aanleggen', 'weer'] as const).map((t) => (
           <Chip key={t} dark active={p.tab === t} title={tabLabel(t)} onPress={() => { p.onTab(t); if (!p.expanded) p.onToggle(); }} />

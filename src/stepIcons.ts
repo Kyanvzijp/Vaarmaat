@@ -1,6 +1,6 @@
-import type { RouteStep } from '@shared/types';
+import type { RouteStep } from './types';
 
-/** Iconen per stap, zie STYLEGUIDE 5 (stappenlijst) */
+/** Iconen per stap, zie STYLEGUIDE 5 (stappenlijst). Gedeeld door web en app. */
 export const STEP_ICONS: Record<RouteStep['kind'], string> = {
   depart: '🚩',
   left: '↰',
@@ -14,5 +14,6 @@ export const STEP_ICONS: Record<RouteStep['kind'], string> = {
   bridge: '🌉',
   movable_bridge: '⏳',
   lock: '🔒',
+  waypoint: '📌',
   arrive: '🏁',
 };

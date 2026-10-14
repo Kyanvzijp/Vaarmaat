@@ -57,6 +57,16 @@ export function weatherText(code: number): string {
   return 'onweer';
 }
 
+/** Weer per rastervak van ongeveer 2 km: kleine verschuivingen van je positie halen het weer niet opnieuw op */
+const GRID = 0.02;
+export function weatherGridPoint(p: LatLng): LatLng {
+  return [Math.round(p[0] / GRID) * GRID, Math.round(p[1] / GRID) * GRID];
+}
+export const weatherKey = (p: LatLng) => {
+  const g = weatherGridPoint(p);
+  return `${g[0].toFixed(2)},${g[1].toFixed(2)}`;
+};
+
 const cache = new Map<string, Weather>();
 
 export async function fetchWeather(p: LatLng, signal?: AbortSignal): Promise<Weather> {

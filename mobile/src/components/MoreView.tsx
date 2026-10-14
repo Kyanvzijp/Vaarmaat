@@ -1,20 +1,17 @@
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { CHECKLISTS } from '@shared/content/lessons';
 import { loadChecks, saveChecks, loadLogs, saveLogs, type Settings } from '@shared/store';
 import type { BoatProfile, LatLng, LogEntry } from '@shared/types';
 import { formatDistance, formatDuration, formatSpeed } from '@shared/geo';
+import { gpxFileName, toGpx } from '@shared/logbook';
+import type { Notify } from '@shared/notice';
 import WeatherCard from './WeatherCard';
 import { Btn, Card, Chip, H1, Muted, NumField, P, Row, TextField, Toggle } from './ui';
 import { page } from './styles';
 import { C, T } from '../theme';
-
-function gpx(l: LogEntry): string {
-  const pts = l.track.map((p) => `<trkpt lat="${p[0]}" lon="${p[1]}"></trkpt>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Vaarmaat" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${l.from} naar ${l.to} (${l.date})</name><trkseg>\n${pts}\n</trkseg></trk></gpx>`;
-}
 
 export function Checklists() {
   const [checks, setChecks] = useState<Record<string, boolean>>(loadChecks);
@@ -54,21 +51,34 @@ export function Checklists() {
   );
 }
 
-export function Logbook() {
+export function Logbook({ notify }: { notify: Notify }) {
   const [logs, setLogs] = useState<LogEntry[]>(loadLogs);
   const remove = (id: string) => {
+    const i = logs.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    const removed = logs[i];
     const l = logs.filter((x) => x.id !== id);
     setLogs(l);
     saveLogs(l);
+    notify('Tocht gewist uit het logboek.', 'info', {
+      label: 'Ongedaan maken',
+      run: () => {
+        const cur = loadLogs();
+        if (cur.some((x) => x.id === id)) return;
+        const restored = [...cur.slice(0, i), removed, ...cur.slice(i)];
+        saveLogs(restored);
+        setLogs(restored);
+      },
+    });
   };
   const share = async (l: LogEntry) => {
     try {
-      const f = new File(Paths.cache, `vaarmaat-${l.date.slice(0, 10)}-${l.id}.gpx`);
+      const f = new File(Paths.cache, gpxFileName(l));
       f.create({ overwrite: true });
-      f.write(gpx(l));
+      f.write(toGpx(l));
       await Sharing.shareAsync(f.uri, { mimeType: 'application/gpx+xml', UTI: 'com.topografix.gpx', dialogTitle: 'GPX delen' });
-    } catch (e) {
-      Alert.alert('Delen lukt niet', (e as Error).message);
+    } catch {
+      notify('Delen lukt nu niet. Probeer het opnieuw.', 'fout');
     }
   };
   const total = logs.reduce((a, l) => a + l.distance, 0);
@@ -86,7 +96,7 @@ export function Logbook() {
         >
           <Row style={{ marginTop: 6 }}>
             <Btn small title="GPX delen" onPress={() => share(l)} />
-            <Btn small title="Wis" onPress={() => remove(l.id)} />
+            <Btn small title="Verwijderen" onPress={() => remove(l.id)} />
           </Row>
         </Card>
       ))}
@@ -100,11 +110,12 @@ interface Props {
   profile: BoatProfile;
   onEditProfile: () => void;
   weatherPoint: LatLng | null;
+  notify: Notify;
 }
 
 type Sub = 'weer' | 'check' | 'log' | 'inst';
 
-export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint }: Props) {
+export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify }: Props) {
   const [tab, setTab] = useState<Sub>('weer');
   // vertrektijd pas opslaan als hij geldig is, zodat de dagindeling nooit met een halve tijd rekent
   const [time, setTime] = useState(settings.startTime);
@@ -118,7 +129,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
       </Row>
       {tab === 'weer' && <WeatherCard point={weatherPoint} label="Weer en wind" />}
       {tab === 'check' && <Checklists />}
-      {tab === 'log' && <Logbook />}
+      {tab === 'log' && <Logbook notify={notify} />}
       {tab === 'inst' && (
         <View style={{ gap: 12 }}>
           <Card icon="🛥️" title={profile.name} lines={[`hoogte ${profile.height.toFixed(2).replace('.', ',')} m · diepgang ${profile.draft.toFixed(2).replace('.', ',')} m · ${profile.speed} km/u`]} onPress={onEditProfile} />
@@ -140,7 +151,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
             <Text style={[T.label, { color: C.ink }]}>Over Vaarmaat</Text>
             <Muted>Vaarwegen, bruggen, sluizen, havens en aanlegplaatsen: © OpenStreetMap bijdragers (ODbL). Zeekaartsymbolen: OpenSeaMap. Weer: Open-Meteo. Regelkennis op basis van het Binnenvaartpolitiereglement en Varen doe je Samen.</Muted>
             <Muted>Doorvaarthoogtes en bedieningstijden kunnen afwijken van de werkelijkheid. Controleer altijd ter plaatse en volg aanwijzingen van brug- en sluiswachters. De app is een hulpmiddel, de schipper blijft verantwoordelijk.</Muted>
-            <Muted>Routes, uitleg, checklists en havens werken offline; alleen de kaarttegels en het weer hebben internet nodig.</Muted>
+            <Muted>Routes, uitleg, checklists en havens werken offline. Kaarttegels, het weer en zoeken op adres hebben internet nodig.</Muted>
           </View>
         </View>
       )}

@@ -77,7 +77,7 @@ export interface BoatProfile {
 }
 
 export interface RouteStep {
-  kind: 'depart' | 'left' | 'right' | 'slight_left' | 'slight_right' | 'sharp_left' | 'sharp_right' | 'straight' | 'bridge' | 'movable_bridge' | 'lock' | 'arrive' | 'uturn';
+  kind: 'depart' | 'left' | 'right' | 'slight_left' | 'slight_right' | 'sharp_left' | 'sharp_right' | 'straight' | 'bridge' | 'movable_bridge' | 'lock' | 'waypoint' | 'arrive' | 'uturn';
   text: string;
   detail?: string;
   /** afstand vanaf start (m) */
@@ -177,4 +177,16 @@ export interface LogEntry {
   maxSpeed: number;
   avgSpeed: number;
   track: LatLng[];
+  /** tijdstip per punt van het spoor (ms sinds 1970), even lang als track; ontbreekt bij oudere tochten */
+  times?: number[];
+}
+
+/** Tocht die nu gevaren wordt; wordt tijdens navigatie bewaard zodat het spoor een herstart of crash overleeft */
+export interface ActiveTrip {
+  startedAt: number;
+  from: string;
+  to: string;
+  track: LatLng[];
+  times: number[];
+  maxSpeed: number;
 }

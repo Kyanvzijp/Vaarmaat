@@ -1,4 +1,4 @@
-import type { Trip, LogEntry } from './types';
+import type { Trip, LogEntry, ActiveTrip } from './types';
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -16,6 +16,14 @@ function write(key: string, value: unknown) {
   }
 }
 
+function remove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* opslag niet beschikbaar */
+  }
+}
+
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 const K = {
@@ -25,6 +33,7 @@ const K = {
   lessons: 'vaarmaat.lessons.v1',
   settings: 'vaarmaat.settings.v1',
   favs: 'vaarmaat.favs.v1',
+  active: 'vaarmaat.active.v1',
 };
 
 export const loadTrips = () => read<Trip[]>(K.trips, []);
@@ -56,3 +65,7 @@ export const saveSettings = (s: Settings) => write(K.settings, s);
 
 export const loadFavs = () => read<string[]>(K.favs, []);
 export const saveFavs = (f: string[]) => write(K.favs, f);
+
+/** Tocht die nu gevaren wordt (zie src/logbook.ts) */
+export const loadActiveTrip = () => read<ActiveTrip | null>(K.active, null);
+export const saveActiveTrip = (a: ActiveTrip | null) => (a ? write(K.active, a) : remove(K.active));

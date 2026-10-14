@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { geocode, type Place } from '@shared/geocode';
+import { geocode, searchLocal, REMOTE_DELAY, type Place } from '@shared/geocode';
 import { C, T } from '../theme';
 
 interface Props {
@@ -17,37 +17,51 @@ const icon = (k: Place['kind']) => (k === 'waterway' ? '〰️' : k === 'harbour
 
 export default function SearchBox({ label, value, placeholder, onSelect, onUseGps, onPickOnMap, picking }: Props) {
   const [text, setText] = useState(value?.name ?? '');
+  // tekst volgt de gekozen plek als die van buitenaf verandert (omkeren, tocht openen, Mijn locatie)
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setText(value?.name ?? '');
+  }
+  // naam voor schermlezers: "Vertrekpunt", "Bestemming" of "Tussenpunt 2" in plaats van de letter
+  const a11yName = `${placeholder.replace(/\s*\(.*\)$/, '')}${/^\d+$/.test(label) ? ` ${label}` : ''}`;
   const [results, setResults] = useState<Place[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    setText(value?.name ?? '');
-  }, [value]);
+  const cancel = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (blurRef.current) clearTimeout(blurRef.current);
+    abortRef.current?.abort();
+  };
+  useEffect(() => cancel, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const q = text.trim();
-    if (q.length === 0) {
-      setResults([]);
+  /** Bekende bestemmingen meteen; adressen pas als je even stopt met typen (gebruiksbeleid Nominatim) */
+  const search = (q: string, delay: number) => {
+    cancel();
+    setResults(searchLocal(q));
+    if (q.trim().length < 3) {
+      setLoading(false);
       return;
     }
-    abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
     setLoading(true);
-    const t = setTimeout(async () => {
+    timerRef.current = setTimeout(async () => {
       const r = await geocode(q, ac.signal);
       if (!ac.signal.aborted) {
         setResults(r);
         setLoading(false);
       }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [text, open]);
+    }, delay);
+  };
 
   const choose = (fn: () => void) => {
+    cancel();
+    setLoading(false);
     fn();
     setOpen(false);
   };
@@ -64,16 +78,30 @@ export default function SearchBox({ label, value, placeholder, onSelect, onUseGp
           onChangeText={(t) => {
             setText(t);
             setOpen(true);
-            if (value) onSelect(null);
+            if (value) {
+              // zelf typen wist de gekozen plek, maar niet wat je net typte
+              setShown(null);
+              onSelect(null);
+            }
+            search(t, REMOTE_DELAY);
           }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-          onSubmitEditing={() => results[0] && choose(() => onSelect(results[0]))}
+          onFocus={() => {
+            // een blur van eerder (bijvoorbeeld van het veld dat hier stond voor je een tussenpunt toevoegde) mag de lijst niet sluiten
+            if (blurRef.current) clearTimeout(blurRef.current);
+            setOpen(true);
+          }}
+          onBlur={() => {
+            blurRef.current = setTimeout(() => setOpen(false), 200);
+          }}
+          onSubmitEditing={() => {
+            if (results[0]) choose(() => onSelect(results[0]));
+            else if (text.trim().length >= 3) search(text, 0);
+          }}
           returnKeyType="search"
-          accessibilityLabel={label}
+          accessibilityLabel={a11yName}
         />
         {text.length > 0 && (
-          <Pressable hitSlop={10} onPress={() => { setText(''); onSelect(null); }} accessibilityLabel="Wissen">
+          <Pressable hitSlop={10} onPress={() => { cancel(); setText(''); setResults([]); setLoading(false); onSelect(null); }} accessibilityRole="button" accessibilityLabel="Zoekveld wissen">
             <Text style={{ fontSize: 18, color: C.muted, paddingHorizontal: 6 }}>×</Text>
           </Pressable>
         )}
@@ -86,10 +114,10 @@ export default function SearchBox({ label, value, placeholder, onSelect, onUseGp
           {onPickOnMap && text.trim().length === 0 && (
             <Row onPress={() => choose(onPickOnMap)} icon="🗺️" title="Kies op de kaart" sub="tik op een vaarweg" />
           )}
-          {loading && results.length === 0 && <Text style={st.muted}>Zoeken…</Text>}
           {results.map((r, i) => (
-            <Row key={i} onPress={() => choose(() => onSelect(r))} icon={icon(r.kind)} title={r.name} sub={r.detail} />
+            <Row key={`${r.name}:${i}`} onPress={() => choose(() => onSelect(r))} icon={icon(r.kind)} title={r.name} sub={r.detail} />
           ))}
+          {loading && <Text style={st.muted}>Adressen zoeken…</Text>}
           {!loading && text.trim().length >= 3 && results.length === 0 && <Text style={st.muted}>Niets gevonden. Tik op de kaart om een punt te kiezen.</Text>}
         </View>
       )}
@@ -99,7 +127,7 @@ export default function SearchBox({ label, value, placeholder, onSelect, onUseGp
 
 function Row({ icon: ic, title, sub, onPress }: { icon: string; title: string; sub?: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [st.row, pressed && { backgroundColor: C.canvas }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [st.row, pressed && { backgroundColor: C.canvas }]}>
       <Text style={{ fontSize: 16 }}>{ic}</Text>
       <Text style={[T.body, { color: C.ink, flex: 1 }]} numberOfLines={1}>
         <Text style={{ fontWeight: '600' }}>{title}</Text> <Text style={[T.meta, { color: C.muted }]}>{sub}</Text>

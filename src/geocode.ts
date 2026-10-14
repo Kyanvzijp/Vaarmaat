@@ -58,11 +58,38 @@ export const KNOWN_PLACES: Place[] = [
 
 const VIEWBOX = '4.20,52.52,5.32,51.85';
 
-export async function geocode(query: string, signal?: AbortSignal): Promise<Place[]> {
+/** Bekende bestemmingen die bij de zoekterm passen; direct, zonder internet */
+export function searchLocal(query: string, limit = 5): Place[] {
   const q = query.trim().toLowerCase();
-  const local = KNOWN_PLACES.filter((p) => p.name.toLowerCase().includes(q) || p.detail.toLowerCase().includes(q)).slice(0, 5);
-  if (q.length < 3) return local;
+  if (!q) return [];
+  return KNOWN_PLACES.filter((p) => p.name.toLowerCase().includes(q) || p.detail.toLowerCase().includes(q)).slice(0, limit);
+}
+
+/**
+ * Nominatim staat maximaal één verzoek per seconde toe en verbiedt zoeken terwijl je typt. Daarom wacht de
+ * zoekbalk eerst tot je stopt met typen (`REMOTE_DELAY`) en houdt deze functie zelf de seconde aan.
+ */
+export const REMOTE_DELAY = 700;
+const MIN_INTERVAL = 1100;
+let lastRemote = 0;
+
+const wait = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (ms <= 0) return resolve();
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(new Error('afgebroken'));
+    });
+  });
+
+/** Bekende bestemmingen plus adressen en plaatsen via Nominatim (vanaf 3 tekens) */
+export async function geocode(query: string, signal?: AbortSignal): Promise<Place[]> {
+  const local = searchLocal(query);
+  if (query.trim().length < 3) return local;
   try {
+    await wait(lastRemote + MIN_INTERVAL - Date.now(), signal);
+    lastRemote = Date.now();
     const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=nl&viewbox=${VIEWBOX}&bounded=1&q=${encodeURIComponent(query)}`;
     const r = await fetch(url, { signal, headers: { Accept: 'application/json' } });
     if (!r.ok) return local;
