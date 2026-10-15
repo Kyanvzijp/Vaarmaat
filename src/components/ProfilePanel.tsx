@@ -39,7 +39,7 @@ export default function ProfilePanel({ profile, onChange, onClose }: Props) {
         <span className="field-input"><input value={profile.name} onChange={(e) => set({ name: e.target.value })} /></span>
       </label>
       <div className="grid2">
-        <NumField label="Hoogte boven water" hint="(hoogste punt)" value={profile.height} step={0.05} min={0} max={30} unit="m" onChange={(v) => set({ height: v })} />
+        <NumField label="Hoogte boven water" hint={profile.heightUnsure ? '(geschat, meet je boot na)' : '(hoogste punt)'} value={profile.height} step={0.05} min={0} max={30} unit="m" onChange={(v) => set({ height: v, heightUnsure: false })} />
         <NumField label="Diepgang" value={profile.draft} step={0.05} min={0} max={5} unit="m" onChange={(v) => set({ draft: v })} />
         <NumField label="Breedte" value={profile.width} step={0.1} min={0} max={20} unit="m" onChange={(v) => set({ width: v })} />
         <NumField label="Kruissnelheid" value={profile.speed} step={0.5} min={1} max={60} unit="km/u" onChange={(v) => set({ speed: v })} />

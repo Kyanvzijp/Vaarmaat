@@ -61,7 +61,7 @@ export default function TripsView({ trips, onOpen, onDelete, onNew }: { trips: T
         >
           <Row style={{ marginTop: 6 }}>
             <Btn small kind="primary" title="Openen" onPress={() => onOpen(t)} />
-            <Btn small title="Wis" onPress={() => onDelete(t.id)} />
+            <Btn small title="Verwijderen" onPress={() => onDelete(t.id)} />
           </Row>
         </Card>
       ))}

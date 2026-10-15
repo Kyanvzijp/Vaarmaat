@@ -5,11 +5,8 @@ import type { BoatProfile, LatLng, LogEntry } from '../types';
 import { formatDistance, formatDuration, formatSpeed } from '../geo';
 import WeatherCard from './WeatherCard';
 import { voiceAvailable } from '../voice';
-
-function gpx(l: LogEntry): string {
-  const pts = l.track.map((p) => `<trkpt lat="${p[0]}" lon="${p[1]}"></trkpt>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Vaarmaat" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${l.from} naar ${l.to} (${l.date})</name><trkseg>\n${pts}\n</trkseg></trk></gpx>`;
-}
+import { gpxFileName, toGpx } from '../logbook';
+import type { Notify } from '../notice';
 
 export function Checklists() {
   const [checks, setChecks] = useState<Record<string, boolean>>(loadChecks);
@@ -52,19 +49,34 @@ export function Checklists() {
   );
 }
 
-export function Logbook() {
+export function Logbook({ notify }: { notify: Notify }) {
   const [logs, setLogs] = useState<LogEntry[]>(loadLogs);
   const remove = (id: string) => {
+    const i = logs.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    const removed = logs[i];
     const l = logs.filter((x) => x.id !== id);
     setLogs(l);
     saveLogs(l);
+    notify('Tocht gewist uit het logboek.', 'info', {
+      label: 'Ongedaan maken',
+      run: () => {
+        const cur = loadLogs();
+        if (cur.some((x) => x.id === id)) return;
+        const restored = [...cur.slice(0, i), removed, ...cur.slice(i)];
+        saveLogs(restored);
+        setLogs(restored);
+      },
+    });
   };
   const download = (l: LogEntry) => {
-    const blob = new Blob([gpx(l)], { type: 'application/gpx+xml' });
+    const blob = new Blob([toGpx(l)], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `vaarmaat-${l.date}.gpx`;
+    a.href = url;
+    a.download = gpxFileName(l);
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
   };
   const total = logs.reduce((a, l) => a + l.distance, 0);
   const hours = logs.reduce((a, l) => a + l.duration, 0);
@@ -81,7 +93,7 @@ export function Logbook() {
           </div>
           <div className="log-actions">
             <button className="small-btn" onClick={() => download(l)}>GPX</button>
-            <button className="small-btn" onClick={() => remove(l.id)}>Wis</button>
+            <button className="small-btn" onClick={() => remove(l.id)}>Verwijderen</button>
           </div>
         </div>
       ))}
@@ -95,15 +107,30 @@ interface Props {
   profile: BoatProfile;
   onEditProfile: () => void;
   weatherPoint: LatLng | null;
+  notify: Notify;
+  onEmergency: () => void;
+  onRestartOnboarding: () => void;
+  initialTab?: MoreTab;
 }
 
-export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint }: Props) {
-  const [tab, setTab] = useState<'weer' | 'check' | 'log' | 'inst'>('weer');
+type MoreTab = 'weer' | 'check' | 'log' | 'inst';
+
+const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+
+export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify, onEmergency, onRestartOnboarding, initialTab = 'weer' }: Props) {
+  const [tab, setTab] = useState<MoreTab>(initialTab);
   return (
     <div className="page">
       <div className="page-head">
         <h2>Aan boord</h2>
       </div>
+      <button className="em-entry" onClick={onEmergency}>
+        <span className="em-entry-icon" aria-hidden="true">🆘</span>
+        <span>
+          <b>Nood</b>
+          <small>Bel 112, geef je positie door, Mayday voor de marifoon</small>
+        </span>
+      </button>
       <div className="subtabs">
         <button className={tab === 'weer' ? 'active' : ''} onClick={() => setTab('weer')}>🌤️ Weer</button>
         <button className={tab === 'check' ? 'active' : ''} onClick={() => setTab('check')}>✅ Checklists</button>
@@ -112,7 +139,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
       </div>
       {tab === 'weer' && <WeatherCard point={weatherPoint} label="Weer en wind" />}
       {tab === 'check' && <Checklists />}
-      {tab === 'log' && <Logbook />}
+      {tab === 'log' && <Logbook notify={notify} />}
       {tab === 'inst' && (
         <div className="settings">
           <button className="card" onClick={onEditProfile}>
@@ -125,6 +152,10 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
           <label className="toggle">
             <input type="checkbox" checked={settings.voice} disabled={!voiceAvailable()} onChange={(e) => onSettings({ ...settings, voice: e.target.checked })} />
             <span>Gesproken instructies tijdens navigatie{voiceAvailable() ? '' : ' (niet beschikbaar in deze browser)'}</span>
+          </label>
+          <label className="toggle">
+            <input type="checkbox" checked={settings.haptics && canVibrate} disabled={!canVibrate} onChange={(e) => onSettings({ ...settings, haptics: e.target.checked })} />
+            <span>Trillen bij een nieuwe instructie en bij een sluis of brug{canVibrate ? '' : ' (niet beschikbaar in deze browser)'}</span>
           </label>
           <label className="toggle">
             <input type="checkbox" checked={settings.showPois} onChange={(e) => onSettings({ ...settings, showPois: e.target.checked })} />
@@ -152,6 +183,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
               </span>
             </label>
           </div>
+          <button className="small-btn" onClick={onRestartOnboarding}>Introductie opnieuw doorlopen</button>
           <div className="about muted small">
             <p><b>Over Vaarmaat</b></p>
             <p>Vaarwegen, bruggen, sluizen, havens en aanlegplaatsen: © OpenStreetMap bijdragers (ODbL). Zeekaartsymbolen: OpenSeaMap. Weer: Open-Meteo. Regelkennis op basis van het Binnenvaartpolitiereglement en Varen doe je Samen.</p>

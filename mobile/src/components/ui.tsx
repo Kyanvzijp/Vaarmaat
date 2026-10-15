@@ -153,17 +153,21 @@ export function Card({ icon, iconColor, title, lines, onPress, children }: { ico
   );
 }
 
-/** Sheet onderin: maximaal 46 procent van de hoogte ingeklapt, 78 procent uitgeklapt */
-export function Sheet({ children, expanded, onToggle, bottom = 0 }: { children: ReactNode; expanded?: boolean; onToggle?: () => void; bottom?: number }) {
+/**
+ * Sheet onderin: maximaal 46 procent van de hoogte ingeklapt, 78 procent uitgeklapt.
+ * `footer` staat vast onderaan, buiten het scrollgebied, zodat de belangrijkste actie altijd in beeld is.
+ */
+export function Sheet({ children, expanded, onToggle, bottom = 0, footer }: { children: ReactNode; expanded?: boolean; onToggle?: () => void; bottom?: number; footer?: ReactNode }) {
   const { height } = useWindowDimensions();
   return (
     <View style={[s.sheet, { bottom, maxHeight: height * (expanded ? 0.78 : 0.46) }]}>
-      <Pressable onPress={onToggle} hitSlop={10} style={s.grip} accessibilityLabel={expanded ? 'Inklappen' : 'Uitklappen'}>
+      <Pressable onPress={onToggle} hitSlop={10} style={s.grip} accessibilityRole="button" accessibilityLabel={expanded ? 'Minder tonen' : 'Meer tonen'}>
         <View style={s.gripBar} />
       </Pressable>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10 }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10 }} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
+      {footer && <View style={s.sheetFooter}>{footer}</View>}
     </View>
   );
 }
@@ -202,4 +206,5 @@ const s = StyleSheet.create({
   sheet: { position: 'absolute', left: 0, right: 0, backgroundColor: C.surface, borderTopLeftRadius: RADIUS, borderTopRightRadius: RADIUS, ...SHADOW },
   grip: { alignItems: 'center', paddingVertical: 8 },
   gripBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: '#cfd6e2' },
+  sheetFooter: { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12, borderTopWidth: 1, borderTopColor: C.line, backgroundColor: C.surface },
 });

@@ -63,6 +63,30 @@ export const REALISM = {
   lockApproach: 300,
 };
 
+/**
+ * Rustige navigatie (NAV-01): alleen instructies als je iets moet doen.
+ * Ruimte = doorvaarthoogte min de hoogte van de boot.
+ */
+export const CALM = {
+  /** vaste brug met zoveel meter of meer boven boot plus marge: stille stap */
+  quietRoom: 1.0,
+  /** vaste brug met minder ruimte dan dit (m): waarschuwing "Let op" */
+  tightRoom: 0.5,
+  /** bruggen met onbekende hoogte die zo dicht (m) achter elkaar liggen, krijgen één gezamenlijke melding */
+  unknownCluster: 1000,
+  /** binnen deze afstand (m) van een belangrijkere stap wordt een gewone vaste brug stil */
+  collision: 200,
+};
+
+/** Belang van een stap bij botsing: sluis, beweegbare brug, afslag, vaste brug */
+export function stepPriority(s: RouteStep): number {
+  if (s.kind === 'lock') return 4;
+  if (s.kind === 'movable_bridge') return 3;
+  if (s.kind === 'bridge') return 1;
+  if (s.kind === 'depart' || s.kind === 'arrive') return 0;
+  return 2;
+}
+
 export interface EdgeEval {
   /** kosten voor de routekeuze (seconden maal voorkeursfactor), of Infinity als niet bevaarbaar */
   cost: number;
@@ -458,7 +482,8 @@ function buildSteps(
     if (followsWater && kind !== 'uturn') {
       if (!nameChanged) continue;
       if (Math.abs(angle) < 60) {
-        steps.push({ kind: 'straight', text: `Vaar door op ${outName}`, at: cum[i], dist: 0, point: coords[i], idx: i });
+        // het water loopt gewoon door onder een andere naam: niets te doen, dus een stille stap
+        steps.push({ kind: 'straight', text: `Vaar door op ${outName}`, at: cum[i], dist: 0, point: coords[i], idx: i, quiet: true });
         continue;
       }
     }
@@ -489,18 +514,46 @@ function buildSteps(
     }
     return lo;
   };
+  const unknown: RouteStep[] = [];
+  const plain = new Set<RouteStep>();
   for (const b of bridges) {
     const mustOpen = b.height == null ? b.movable : b.height < p.height + p.margin;
     const kind: RouteStep['kind'] = b.movable && mustOpen ? 'movable_bridge' : 'bridge';
     const name = b.name ?? 'brug';
     const detail = b.height == null ? 'doorvaarthoogte onbekend' : `doorvaarthoogte ${formatHeight(b.height)}`;
-    const text = kind === 'movable_bridge' ? `Wacht op opening ${name}` : `Vaar onder ${name} door`;
-    steps.push({ kind, text, detail, at: b.at, dist: 0, point: b.point, idx: idxAt(b.at) });
+    const step: RouteStep = { kind, text: kind === 'movable_bridge' ? `Wacht op opening ${name}` : `Vaar onder ${name} door`, detail, at: b.at, dist: 0, point: b.point, idx: idxAt(b.at) };
+    if (kind === 'bridge') {
+      if (b.height == null) unknown.push(step);
+      else {
+        const room = b.height - p.height;
+        if (b.height >= p.height + p.margin + CALM.quietRoom) step.quiet = true;
+        else if (room < CALM.tightRoom) step.text = `Let op: ${name} ${formatHeight(b.height)}, je hebt ${formatHeight(room)} ruimte`;
+        else plain.add(step);
+      }
+    }
+    steps.push(step);
+  }
+  // bruggen met onbekende hoogte vlak achter elkaar: één melding bij de eerste, de rest stil
+  for (let i = 0; i < unknown.length; ) {
+    let j = i + 1;
+    while (j < unknown.length && unknown[j].at - unknown[j - 1].at < CALM.unknownCluster) j++;
+    const n = j - i;
+    if (n > 1) {
+      const names = unknown.slice(i, j).map((s) => s.text.replace(/^Vaar onder (.*) door$/, '$1')).filter((x) => x !== 'brug');
+      unknown[i].text = `Let op: de komende ${n} bruggen hebben een onbekende doorvaarthoogte`;
+      unknown[i].detail = names.length ? names.slice(0, 3).join(', ') + (names.length > 3 ? ' en meer' : '') : undefined;
+      for (let k = i + 1; k < j; k++) unknown[k].quiet = true;
+    }
+    i = j;
   }
   for (const l of locks) {
     steps.push({ kind: 'lock', text: `Schut door ${l.name ?? 'sluis'}`, detail: `reken op ca. ${p.lockWait + Math.round(REALISM.lockApproach / 60)} min`, at: l.at, dist: 0, point: l.point, idx: idxAt(l.at) });
   }
   steps.sort((a, b) => a.at - b.at);
+  // een gewone vaste brug vlak bij een sluis, beweegbare brug of afslag: die belangrijkere stap gaat voor
+  for (const s of plain) {
+    if (steps.some((t) => t !== s && !t.quiet && stepPriority(t) > 1 && Math.abs(t.at - s.at) <= CALM.collision)) s.quiet = true;
+  }
   const total = cum[cum.length - 1];
   const lastName = g.wayOf(r.edges[r.edges.length - 1]).n;
   steps.push({ kind: 'arrive', text: lastName ? `Bestemming bereikt via ${lastName}` : 'Bestemming bereikt', at: total, dist: 0, point: coords[coords.length - 1], idx: coords.length - 1 });

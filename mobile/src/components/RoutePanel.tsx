@@ -9,7 +9,8 @@ import WeatherCard from './WeatherCard';
 import { OpsFacts } from './ApproachCard';
 import { Btn, Card, Chip, Muted, NumField, P, Row, Sheet, SheetHead, Toggle, Warn } from './ui';
 import { C, T } from '../theme';
-import { STEP_ICONS } from '../stepIcons';
+import { STEP_ICONS } from '@shared/stepIcons';
+import { useNow } from '../useNow';
 
 export type RouteTab = 'route' | 'stappen' | 'tocht' | 'aanleggen' | 'weer';
 
@@ -36,6 +37,10 @@ interface Props {
   tab: RouteTab;
   onTab: (t: RouteTab) => void;
   bottom: number;
+  /** vraag of het bootprofiel klopt (onboarding overgeslagen of hoogte geschat) */
+  boatCheck: { kind: 'skipped' | 'unsure'; text: string } | null;
+  onBoatEdit: () => void;
+  onBoatOk: () => void;
 }
 
 const MODES: [TravelMode, string][] = [
@@ -80,16 +85,27 @@ function StepIcon({ kind }: { kind: RouteStep['kind'] }) {
 export default function RoutePanel(p: Props) {
   const { routes, selected, profile } = p;
   const r = routes[selected];
+  const now = useNow();
   if (!r) return null;
-  const arrivalStr = new Date(Date.now() + r.duration * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+  const arrivalStr = new Date(now + r.duration * 1000).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
   const fits = r.lowestBridge == null || r.lowestBridge >= profile.height + profile.margin;
   const long = r.duration > p.hoursPerDay * 3600;
   const opsSteps = r.steps.filter((s) => s.kind === 'movable_bridge' || s.kind === 'lock');
   const tabLabel = (t: RouteTab) =>
-    t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer';
+    t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.filter((s) => !s.quiet && s.kind !== 'depart').length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer';
 
   return (
-    <Sheet expanded={p.expanded} onToggle={p.onToggle} bottom={p.bottom}>
+    <Sheet
+      expanded={p.expanded}
+      onToggle={p.onToggle}
+      bottom={p.bottom}
+      footer={
+        <Row>
+          <Btn kind="primary" title="▶ Start navigatie" onPress={p.onStart} flex />
+          <Btn title="💾 Bewaren" onPress={p.onSaveTrip} />
+        </Row>
+      }
+    >
       <SheetHead
         title={
           <Text style={[T.h1, { color: C.ink }]}>
@@ -99,6 +115,15 @@ export default function RoutePanel(p: Props) {
         sub={`${long ? `${Math.ceil(r.duration / 3600 / p.hoursPerDay)} dagen bij ${p.hoursPerDay} u/dag` : `Aankomst rond ${arrivalStr}`} bij ${profile.speed} km/u${r.waitTime >= 300 ? ` · waarvan ${formatDuration(r.waitTime)} wachten` : ''} · ${r.bridges.length} bruggen · ${r.locks.length} sluizen${r.lowestBridge != null ? ` · laagste brug ${formatHeight(r.lowestBridge)}` : ''}`}
         onClose={p.onClose}
       />
+      {p.boatCheck && (
+        <View style={st.boatCheck} accessibilityLiveRegion="polite">
+          <Text style={[T.meta, { color: C.warn }]}>{p.boatCheck.text}</Text>
+          <Row>
+            <Btn small title="Boot instellen" onPress={p.onBoatEdit} />
+            <Btn small title={p.boatCheck.kind === 'skipped' ? 'Klopt' : 'Begrepen'} onPress={p.onBoatOk} />
+          </Row>
+        </View>
+      )}
       {routes.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {routes.map((alt, i) => (
@@ -116,10 +141,6 @@ export default function RoutePanel(p: Props) {
       ))}
       {r.access?.start && <AccessCard leg={r.access.start} kind="start" />}
       {r.access?.end && <AccessCard leg={r.access.end} kind="end" />}
-      <Row>
-        <Btn kind="primary" title="▶ Start navigatie" onPress={p.onStart} flex />
-        <Btn title="💾 Bewaren" onPress={p.onSaveTrip} />
-      </Row>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
         {(['route', 'stappen', 'tocht', 'aanleggen', 'weer'] as const).map((t) => (
           <Chip key={t} dark active={p.tab === t} title={tabLabel(t)} onPress={() => { p.onTab(t); if (!p.expanded) p.onToggle(); }} />
@@ -148,10 +169,10 @@ export default function RoutePanel(p: Props) {
 
       {p.tab === 'stappen' &&
         r.steps.map((s, i) => (
-          <Pressable key={i} style={st.step} onPress={() => p.onStepClick(s)}>
+          <Pressable key={i} style={[st.step, s.quiet && { opacity: 0.75 }]} onPress={() => p.onStepClick(s)}>
             <StepIcon kind={s.kind} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[T.label, { fontSize: 14, color: C.ink }]}>{s.text}</Text>
+              <Text style={s.quiet ? [T.meta, { fontSize: 13, color: C.muted }] : [T.label, { fontSize: 14, color: C.ink }]}>{s.text}</Text>
               {s.detail && <Text style={[T.meta, { color: C.ink }]}>{s.detail}</Text>}
               {s.kind !== 'arrive' && <Muted>daarna {formatDistance(s.dist)}</Muted>}
             </View>
@@ -195,6 +216,7 @@ export default function RoutePanel(p: Props) {
 
 const st = StyleSheet.create({
   access: { flexDirection: 'row', gap: 10, padding: 10, borderRadius: 12, backgroundColor: C.canvas },
+  boatCheck: { gap: 8, padding: 10, borderRadius: 12, backgroundColor: C.warnBg },
   alt: { padding: 10, borderRadius: 12, backgroundColor: C.canvas, borderWidth: 1, borderColor: C.line, minWidth: 140, gap: 2 },
   altActive: { backgroundColor: C.blueSoft, borderColor: C.blue },
   step: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.line },

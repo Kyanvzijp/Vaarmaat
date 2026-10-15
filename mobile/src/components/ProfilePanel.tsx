@@ -15,7 +15,7 @@ export default function ProfilePanel({ profile, onChange, onClose, bottom }: { p
       </Row>
       <TextField label="Naam" value={profile.name} onChange={(v) => set({ name: v })} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
-        <NumField label="Hoogte boven water" hint="(hoogste punt)" value={profile.height} min={0} max={30} unit="m" onChange={(v) => set({ height: v })} />
+        <NumField label="Hoogte boven water" hint={profile.heightUnsure ? '(geschat, meet je boot na)' : '(hoogste punt)'} value={profile.height} min={0} max={30} unit="m" onChange={(v) => set({ height: v, heightUnsure: false })} />
         <NumField label="Diepgang" value={profile.draft} min={0} max={5} unit="m" onChange={(v) => set({ draft: v })} />
         <NumField label="Breedte" value={profile.width} min={0} max={20} unit="m" onChange={(v) => set({ width: v })} />
         <NumField label="Kruissnelheid" value={profile.speed} min={1} max={60} unit="km/u" onChange={(v) => set({ speed: v })} />

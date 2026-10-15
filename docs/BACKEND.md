@@ -33,6 +33,8 @@ Schema in `supabase/migrations/20260904120000_init.sql`. Samenvatting:
 | `bookings` | `id` | functie | eigen rijen lezen |
 | `reports` | `id` | iedereen mag invoegen (ook gast) | eigen meldingen lezen |
 
+`logs.track_times` (migratie `20261014120000_log_track_times.sql`) bevat de tijd per punt van het spoor in ms, even lang als `track`; leeg bij oudere tochten. `src/backend/sync.ts` zet hem om naar `LogEntry.times`.
+
 De id's van `trips` en `logs` zijn tekst, omdat de app ze al lokaal maakt (`uid()` in `src/store.ts`). Zo heeft een lokale en een externe rij dezelfde sleutel en is samenvoegen eenvoudig.
 
 `public.has_plus(uid)` is de enige plek waar "heeft Plus" wordt bepaald in de database. Gebruik die functie in RLS voor Plus-inhoud en in Edge Functions.

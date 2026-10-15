@@ -51,6 +51,7 @@ const logToRow = (l: LogEntry, userId: string): LogRow => ({
   max_speed: l.maxSpeed,
   avg_speed: l.avgSpeed,
   track: asJson(l.track),
+  track_times: l.times ? asJson(l.times) : null,
   created_at: l.date,
   updated_at: new Date().toISOString(),
 });
@@ -64,6 +65,7 @@ const rowToLog = (r: LogRow): LogEntry => ({
   maxSpeed: Number(r.max_speed),
   avgSpeed: Number(r.avg_speed),
   track: r.track as unknown as LatLng[],
+  times: Array.isArray(r.track_times) ? (r.track_times as number[]) : undefined,
 });
 
 /** Eenmalig na inloggen: lokale gastdata naar de server. Rijen die daar al staan blijven staan. */

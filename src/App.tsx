@@ -9,21 +9,34 @@ import TripsView from './components/TripsView';
 import MoreView from './components/MoreView';
 import PoiPanel from './components/PoiPanel';
 import ApproachCard, { type Approach } from './components/ApproachCard';
+import Toast, { type Notice, type NoticeKind } from './components/Toast';
+import TripNameDialog from './components/TripNameDialog';
+import Onboarding, { type OnboardingTarget } from './components/Onboarding';
+import EmergencyView from './components/EmergencyView';
+import { onboardingStart, completeOnboarding, acceptDisclaimer, boatCheck, boatCheckText, type OnboardingStep } from './onboarding';
 import { loadGraph, type Graph } from './graph';
 import { loadProfile, saveProfile, BOAT_TYPES } from './profile';
-import { locateOnRoute, type NavState } from './navigation';
+import { locateOnRoute, nextCue, placeKey, OFF_ROUTE, type NavState } from './navigation';
+import { REROUTE, newRerouteTimer, onOtherWaterway, shouldReroute, passedWaypoints, leadsBackToRoute, rerouteMessage } from './reroute';
+import { useWakeLock } from './components/useWakeLock';
 import { routeWaypoints, planStages, type Stage } from './trip';
 import { loadPois, poisNear, OVERNIGHT_KINDS } from './pois';
-import { loadTrips, saveTrips, loadLogs, saveLogs, loadSettings, saveSettings, loadFavs, saveFavs, uid, type Settings } from './store';
-import { speak, setVoiceEnabled, spokenDistance } from './voice';
-import type { BoatProfile, LatLng, RouteResult, RouteStep, Poi, Trip, LogEntry } from './types';
+import { loadTrips, saveTrips, loadLogs, saveLogs, loadSettings, saveSettings, loadFavs, saveFavs, saveActiveTrip, uid, type Settings } from './store';
+import { addFix, buildLogEntry, startActiveTrip } from './logbook';
+import { speak, setVoiceEnabled } from './voice';
+import type { ActiveTrip, BoatProfile, LatLng, LogEntry, RouteResult, RouteStep, Poi, Trip } from './types';
 import type { Place } from './geocode';
 import { haversine, formatDistance } from './geo';
 
 type Tab = 'kaart' | 'tochten' | 'leren' | 'meer';
 type Picking = number | null; // index van waypoint dat op de kaart gekozen wordt
 
-export default function App() {
+/** Zo vaak (ms) wordt de tocht die je vaart lokaal bewaard */
+const SAVE_EVERY = 15000;
+
+const wpKey = (pts: { point: LatLng }[]) => pts.map((p) => placeKey(p.point)).join('|');
+
+export default function App({ recovered = null }: { recovered?: LogEntry | null }) {
   const [graph, setGraph] = useState<Graph | null>(null);
   const [pois, setPois] = useState<Poi[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -32,23 +45,34 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [tab, setTab] = useState<Tab>('kaart');
   const [lessonToOpen, setLessonToOpen] = useState<string | null>(null);
+  const [moreTab, setMoreTab] = useState<'weer' | 'check' | 'log' | 'inst'>('weer');
+  /** onboarding bij de eerste start, of alleen de disclaimer als die is gewijzigd */
+  const [onboarding, setOnboarding] = useState<OnboardingStep | null>(() => onboardingStart(settings));
+  const [showEmergency, setShowEmergency] = useState(false);
 
   // planner
   const [waypoints, setWaypoints] = useState<(Place | null)[]>([null, null]);
   const [picking, setPicking] = useState<Picking>(null);
   const [routes, setRoutes] = useState<RouteResult[]>([]);
   const [selected, setSelected] = useState(0);
+  /** foutmelding van de planner, in de bovenbalk */
   const [message, setMessage] = useState<string | null>(null);
+  /** korte melding onderin (succes, info, fout), ook tijdens navigatie */
+  const [notice, setNotice] = useState<Notice | null>(() =>
+    recovered ? { id: 1, kind: 'succes', text: `Je vorige tocht (${formatDistance(recovered.distance)}) is bewaard in het logboek.` } : null,
+  );
   const [busy, setBusy] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [routeTab, setRouteTab] = useState<'route' | 'stappen' | 'tocht' | 'aanleggen' | 'weer'>('route');
   const [fitKey, setFitKey] = useState(0);
   const [focusStep, setFocusStep] = useState<RouteStep | null>(null);
   const [focusPoint, setFocusPoint] = useState<LatLng | null>(null);
-  const [multiDay, setMultiDay] = useState(false);
+  /** eigen keuze voor de dagindeling, alleen geldig voor de tussenpunten waarvoor hij gemaakt is */
+  const [multiDayChoice, setMultiDayChoice] = useState<{ key: string; on: boolean } | null>(null);
   const [trips, setTrips] = useState<Trip[]>(loadTrips);
   const [favs, setFavs] = useState<string[]>(loadFavs);
   const [poi, setPoi] = useState<Poi | null>(null);
+  const [naming, setNaming] = useState<string | null>(null);
 
   // GPS en navigatie
   const [gps, setGps] = useState<{ pos: LatLng; heading: number | null; speed: number | null; acc: number } | null>(null);
@@ -62,8 +86,23 @@ export default function App() {
   const segRef = useRef(0);
   const lastPosRef = useRef<{ pos: LatLng; t: number } | null>(null);
   const spokenRef = useRef<Set<string>>(new Set());
+  const rerouteRef = useRef(newRerouteTimer());
   const approachedRef = useRef<Set<string>>(new Set());
-  const navStartRef = useRef<{ t: number; maxSpeed: number; speeds: number[] } | null>(null);
+  const activeRef = useRef<ActiveTrip | null>(null);
+  const savedAtRef = useRef(0);
+
+  const notify = useCallback((text: string, kind: NoticeKind = 'succes', action?: Notice['action']) => setNotice({ id: Date.now(), text, kind, action }), []);
+  /** korte trilling bij een nieuwe instructie en bij de naderingskaart (styleguide 10), uit te zetten */
+  const haptic = () => {
+    if (settings.haptics && 'vibrate' in navigator) navigator.vibrate(30);
+  };
+  // scherm aan tijdens navigatie (NAV-03); lukt dat niet, dan één keer een tip
+  useWakeLock(navigating, () => {
+    if (settings.wakeLockTipShown) return;
+    setSettings((s) => ({ ...s, wakeLockTipShown: true }));
+    notify('Tip: zet de automatische schermvergrendeling van je telefoon uit tijdens het varen. Je browser kan het scherm niet zelf aan houden.', 'info');
+  });
+  const closeNotice = useCallback(() => setNotice(null), []);
 
   useEffect(() => {
     loadGraph()
@@ -114,14 +153,15 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waypoints, graph, profile]);
 
-  const route = routes[selected];
+  const route: RouteResult | undefined = routes[selected];
+  const routeKey = wpKey(filled);
+  // dagindeling: automatisch aan als de route langer is dan het dagbudget, tenzij je zelf iets kiest
+  const multiDay = multiDayChoice?.key === routeKey ? multiDayChoice.on : !!route && route.duration > settings.hoursPerDay * 3600;
+  const setMultiDay = (on: boolean) => setMultiDayChoice({ key: routeKey, on });
   const stages: Stage[] = useMemo(() => {
     if (!route || !multiDay) return [];
     return planStages(route, pois, settings.hoursPerDay, settings.startTime, from?.name ?? 'Vertrek', to?.name ?? 'Bestemming');
   }, [route, multiDay, pois, settings.hoursPerDay, settings.startTime, from, to]);
-  useEffect(() => {
-    if (route && route.duration > settings.hoursPerDay * 3600) setMultiDay(true);
-  }, [route, settings.hoursPerDay]);
 
   const destPois = useMemo(() => (to ? poisNear(pois, to.point, 2500, OVERNIGHT_KINDS).slice(0, 8) : []), [pois, to]);
 
@@ -161,44 +201,71 @@ export default function App() {
     );
   }, []);
 
+  /** GPS uit zodra niets de positie meer nodig heeft: na navigatie en als je de kaart niet meer laat volgen */
+  const stopGps = useCallback(() => {
+    if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
+    watchRef.current = null;
+    lastPosRef.current = null;
+    setGps(null);
+  }, []);
+
+  // app naar de achtergrond: GPS uit als je niet navigeert, en de tocht die je vaart meteen bewaren
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        if (activeRef.current) saveActiveTrip(activeRef.current);
+        if (!navigating) stopGps();
+      } else if (navigating || follow || showEmergency) {
+        startGps();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [navigating, follow, showEmergency, startGps, stopGps]);
+  useEffect(() => () => {
+    if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current);
+  }, []);
+
   // navigatie-update bij nieuwe GPS positie: positie op route, spraak, nadering sluis/brug, spoor
   useEffect(() => {
     if (!navigating || !gps || !route) return;
     const st = locateOnRoute(route, gps.pos, segRef.current, gps.speed ?? profile.speed);
     segRef.current = st.segIdx;
     setNav(st);
-    setTrack((t) => (t.length === 0 || haversine(t[t.length - 1], gps.pos) > 8 ? [...t, gps.pos] : t));
-    if (navStartRef.current && gps.speed != null) {
-      navStartRef.current.maxSpeed = Math.max(navStartRef.current.maxSpeed, gps.speed);
-      navStartRef.current.speeds.push(gps.speed);
-    }
-    // spraak
-    const next = st.next;
-    if (next && st.offRoute < 120) {
-      const key = (m: string) => `${next.idx}:${next.kind}:${m}`;
-      const far = next.kind === 'lock' || next.kind === 'movable_bridge' ? 1000 : 600;
-      if (st.toNext < far && st.toNext > 250 && !spokenRef.current.has(key('far'))) {
-        spokenRef.current.add(key('far'));
-        speak(`${spokenDistance(st.toNext)} ${next.text.toLowerCase()}`);
-      } else if (st.toNext <= 250 && st.toNext > 40 && !spokenRef.current.has(key('near'))) {
-        spokenRef.current.add(key('near'));
-        speak(`${spokenDistance(st.toNext)} ${next.text.toLowerCase()}${next.detail ? `, ${next.detail}` : ''}`);
-      } else if (st.toNext <= 40 && !spokenRef.current.has(key('now'))) {
-        spokenRef.current.add(key('now'));
-        speak(next.text);
+    const active = activeRef.current;
+    if (active && addFix(active, gps.pos, gps.speed)) {
+      setTrack([...active.track]);
+      if (Date.now() - savedAtRef.current > SAVE_EVERY) {
+        saveActiveTrip(active);
+        savedAtRef.current = Date.now();
       }
     }
-    if (st.offRoute >= 120 && !spokenRef.current.has('off')) {
-      spokenRef.current.add('off');
-      speak('Je bent van de route af. Vaar terug of herbereken.');
+    // van de route af (NAV-02): na 20 seconden, of meteen als je op een andere vaarweg bent, een nieuwe route
+    const now = Date.now();
+    const other = !!graph && st.offRoute > REROUTE.otherWaterway && onOtherWaterway(graph, route, gps.pos);
+    if (graph && shouldReroute(st, now, rerouteRef.current, other)) {
+      rerouteRef.current.lastAt = now;
+      reroute(true, st);
+      return;
     }
-    if (st.offRoute < 120) spokenRef.current.delete('off');
+    // spraak (NAV-01): alleen instructies, met sleutels per plek zodat een herberekende route ze niet herhaalt
+    const cue = nextCue(route, st, spokenRef.current);
+    if (cue) {
+      for (const k of cue.keys) spokenRef.current.add(k);
+      speak(cue.text);
+      haptic();
+    }
+    if (st.offRoute >= OFF_ROUTE && !spokenRef.current.has('off')) {
+      spokenRef.current.add('off');
+      speak('Je bent van de route af. Vaar terug, of de app zoekt zo een nieuwe route.');
+    }
+    if (st.offRoute < OFF_ROUTE) spokenRef.current.delete('off');
     // nadering sluis of beweegbare brug: tutorial en bedieningsinfo
     const speedKmh = Math.max(gps.speed ?? profile.speed, 2);
     const horizon = (settings.prepMinutes / 60) * speedKmh * 1000;
     const upcoming = [
-      ...route.locks.map((l) => ({ kind: 'lock' as const, name: l.name ?? 'sluis', at: l.at, height: null as number | null, ops: l.ops, key: `lock:${l.at.toFixed(0)}` })),
-      ...route.bridges.filter((b) => b.movable && (b.height == null || b.height < profile.height + profile.margin)).map((b) => ({ kind: 'movable_bridge' as const, name: b.name ?? 'brug', at: b.at, height: b.height, ops: b.ops, key: `br:${b.at.toFixed(0)}` })),
+      ...route.locks.map((l) => ({ kind: 'lock' as const, name: l.name ?? 'sluis', at: l.at, height: null as number | null, ops: l.ops, key: `lock:${placeKey(l.point)}` })),
+      ...route.bridges.filter((b) => b.movable && (b.height == null || b.height < profile.height + profile.margin)).map((b) => ({ kind: 'movable_bridge' as const, name: b.name ?? 'brug', at: b.at, height: b.height, ops: b.ops, key: `br:${placeKey(b.point)}` })),
     ]
       .filter((o) => o.at > st.along + 50 && o.at - st.along < horizon)
       .sort((a, b) => a.at - b.at);
@@ -209,25 +276,28 @@ export default function App() {
       const minutes = Math.round((dist / 1000 / speedKmh) * 60);
       setApproach({ kind: first.kind, name: first.name, dist, minutes, height: first.height, ops: first.ops, key: first.key });
       speak(`Over ongeveer ${minutes} minuten ${first.kind === 'lock' ? 'sluis' : 'beweegbare brug'} ${first.name}. Bekijk de voorbereiding op het scherm.`, true);
+      haptic();
     }
-    if (st.remaining < 30 && !spokenRef.current.has('arrived')) {
+    if (st.remaining < 30 && st.offRoute < OFF_ROUTE && !spokenRef.current.has('arrived')) {
       spokenRef.current.add('arrived');
       const leg = route.access?.end;
       const msg = leg ? `Je bent aangekomen bij het water. Nog ${formatDistance(leg.walkDistance)} lopen naar ${leg.name}.` : 'Je bent aangekomen op je bestemming.';
       speak(msg);
-      setMessage(msg);
+      notify(msg);
     }
-  }, [gps, navigating, route, profile.speed, profile.height, profile.margin, settings.prepMinutes]);
+    // alleen bij een nieuwe GPS-positie of route; reroute en haptic lezen de actuele state en mogen dit niet triggeren
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gps, navigating, route, graph, profile.speed, profile.height, profile.margin, settings.prepMinutes, notify]);
 
   const pickMyLocation = (i: number) => {
-    startGps();
     const apply = (pos: LatLng) => setWp(i, { name: 'Mijn locatie', detail: 'GPS', point: pos, kind: 'gps' });
     if (gps) apply(gps.pos);
+    else if (!('geolocation' in navigator)) setMessage('Geen GPS beschikbaar in deze browser. Kies een punt op de kaart.');
     else
-      navigator.geolocation?.getCurrentPosition(
+      navigator.geolocation.getCurrentPosition(
         (p) => apply([p.coords.latitude, p.coords.longitude]),
         () => setMessage('Kon je locatie niet bepalen. Sta locatie toe of kies een punt op de kaart.'),
-        { enableHighAccuracy: true, timeout: 15000 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
       );
   };
 
@@ -241,6 +311,34 @@ export default function App() {
     setPicking(null);
   };
 
+  const onUserMove = () => {
+    setFollow(false);
+    if (!navigating && !showEmergency) stopGps();
+  };
+
+  const openEmergency = () => {
+    setShowEmergency(true);
+    startGps();
+  };
+  const closeEmergency = () => {
+    setShowEmergency(false);
+    if (!navigating && !follow) stopGps();
+  };
+
+  /** Vanuit de onboarding (huurboot) direct naar de vertrekchecklist of een les */
+  const openFromOnboarding = (target: OnboardingTarget) => {
+    setOnboarding(null);
+    if (target === 'checklist') {
+      setMoreTab('check');
+      setTab('meer');
+    } else {
+      setLessonToOpen(target);
+      setTab('leren');
+    }
+  };
+  const confirmBoat = () => setSettings((s) => (s.boatConfirmed ? s : { ...s, boatConfirmed: true }));
+  const check = boatCheck(settings, profile);
+
   const startNavigation = () => {
     startGps();
     setNavigating(true);
@@ -251,7 +349,10 @@ export default function App() {
     segRef.current = 0;
     spokenRef.current = new Set();
     approachedRef.current = new Set();
-    navStartRef.current = { t: Date.now(), maxSpeed: 0, speeds: [] };
+    rerouteRef.current = newRerouteTimer();
+    activeRef.current = startActiveTrip(from?.name ?? 'Vertrek', to?.name ?? 'Bestemming');
+    saveActiveTrip(activeRef.current);
+    savedAtRef.current = Date.now();
     setTrack([]);
     setNav(null);
     setApproach(null);
@@ -263,54 +364,70 @@ export default function App() {
     setNav(null);
     setApproach(null);
     setFitKey((k) => k + 1);
+    stopGps();
     // logboek
-    const s = navStartRef.current;
-    if (s && track.length > 1) {
-      let d = 0;
-      for (let i = 1; i < track.length; i++) d += haversine(track[i - 1], track[i]);
-      const dur = (Date.now() - s.t) / 1000;
-      if (d > 200 && dur > 60) {
-        const entry: LogEntry = {
-          id: uid(),
-          date: new Date(s.t).toISOString(),
-          from: from?.name ?? 'Vertrek',
-          to: to?.name ?? 'Bestemming',
-          distance: d,
-          duration: dur,
-          maxSpeed: s.maxSpeed,
-          avgSpeed: (d / 1000 / dur) * 3600,
-          track: track.filter((_, i) => i % Math.max(1, Math.floor(track.length / 800)) === 0),
-        };
-        const logs = [entry, ...loadLogs()];
-        saveLogs(logs);
-        setMessage(`Tocht opgeslagen in het logboek: ${formatDistance(d)}.`);
-      }
+    const active = activeRef.current;
+    activeRef.current = null;
+    saveActiveTrip(null);
+    const entry = active ? buildLogEntry(active) : null;
+    if (entry) {
+      saveLogs([entry, ...loadLogs()]);
+      notify(`Tocht opgeslagen in het logboek: ${formatDistance(entry.distance)}.`);
     }
-    navStartRef.current = null;
   };
-  const recalc = () => {
-    if (!gps) return;
+  /**
+   * Nieuwe route vanaf je positie naar de tussenpunten die nog komen (NAV-02). `auto` als de app het zelf doet
+   * omdat je van de route af bent. Lukt het niet, of leidt de nieuwe route je alleen terug naar de oude, dan
+   * blijft de oude route staan: je zit nooit vast in de navigatie.
+   */
+  const reroute = (auto: boolean, st: NavState | null = nav) => {
+    if (!graph || !route) return;
+    if (!gps) {
+      if (!auto) notify('Nog geen GPS positie. Wacht even en probeer het opnieuw.', 'info');
+      return;
+    }
+    const along = st?.along ?? 0;
+    const rest = filled.slice(1 + passedWaypoints(route, along));
     const pl: Place = { name: 'Mijn locatie', detail: 'GPS', point: gps.pos, kind: 'gps' };
-    const pts = [pl, ...filled.slice(1)];
-    setWaypoints([pl, ...waypoints.slice(1)]);
+    const out = routeWaypoints(graph, [pl, ...rest].map((p) => ({ point: p.point, name: p.name })), profile);
+    if (out.routes.length === 0) {
+      if (!auto) notify('Geen nieuwe route gevonden. Vaar terug naar de route of stop de navigatie.', 'fout');
+      return;
+    }
+    const fresh = out.routes[0];
+    if (auto && st && leadsBackToRoute(graph, route, fresh, st)) return;
+    const msg = rerouteMessage(st?.remainingTime ?? route.duration, fresh.duration);
+    setWaypoints([pl, ...rest]);
+    setRoutes(out.routes);
+    setSelected(0);
+    setApproach(null);
     segRef.current = 0;
-    doRoute(pts, profile);
+    notify(msg.text, 'info');
+    speak(msg.spoken, true);
+    haptic();
   };
+  const recalc = () => reroute(false);
 
-  const saveTrip = () => {
+  const saveTrip = (name: string) => {
     if (filled.length < 2) return;
-    const name = window.prompt('Naam van de tocht', `${from?.name ?? ''} naar ${to?.name ?? ''}`);
-    if (!name) return;
     const t: Trip = { id: uid(), name, waypoints: filled.map((w) => ({ name: w.name, point: w.point })), hoursPerDay: settings.hoursPerDay, startTime: settings.startTime, createdAt: new Date().toISOString() };
     setTrips((ts) => [t, ...ts]);
-    setMessage('Tocht bewaard onder Mijn tochten.');
+    setNaming(null);
+    notify('Tocht bewaard onder Mijn tochten.');
   };
   const openTrip = (t: Trip) => {
     setWaypoints(t.waypoints.map((w) => ({ name: w.name, detail: 'tocht', point: w.point, kind: 'place' as const })));
     setSettings((s) => ({ ...s, hoursPerDay: t.hoursPerDay, startTime: t.startTime }));
-    setMultiDay(true);
+    setMultiDayChoice({ key: wpKey(t.waypoints), on: true });
     setRouteTab('tocht');
     setTab('kaart');
+  };
+  const deleteTrip = (id: string) => {
+    const i = trips.findIndex((t) => t.id === id);
+    if (i < 0) return;
+    const removed = trips[i];
+    setTrips((ts) => ts.filter((t) => t.id !== id));
+    notify(`Tocht "${removed.name}" gewist.`, 'info', { label: 'Ongedaan maken', run: () => setTrips((ts) => (ts.some((t) => t.id === id) ? ts : [...ts.slice(0, i), removed, ...ts.slice(i)])) });
   };
 
   const routeToPoi = (p: Poi, asFrom: boolean) => {
@@ -324,6 +441,10 @@ export default function App() {
   const boatType = BOAT_TYPES.find((b) => b.id === profile.type);
   const weatherPoint = gps?.pos ?? from?.point ?? to?.point ?? null;
   const favSet = useMemo(() => new Set(favs), [favs]);
+  // tijdens navigatie is de tabbalk weg: vanuit Leren, Tochten of Aan boord altijd terug kunnen
+  const backToNav = navigating && (
+    <button className="back-to-nav" onClick={() => setTab('kaart')}>‹ Terug naar navigatie</button>
+  );
 
   return (
     <div className={`app ${navigating ? 'navigating' : ''} tab-${tab}`}>
@@ -336,7 +457,7 @@ export default function App() {
         picking={picking != null}
         gps={gps ? { pos: gps.pos, heading: gps.heading } : null}
         follow={follow}
-        onUserMove={() => setFollow(false)}
+        onUserMove={onUserMove}
         focusStep={focusStep}
         focusPoint={focusPoint}
         fitKey={fitKey}
@@ -377,7 +498,7 @@ export default function App() {
                   picking={picking === i}
                 />
                 {waypoints.length > 2 && i !== 0 && i !== waypoints.length - 1 && (
-                  <button className="icon-btn" title="Tussenpunt verwijderen" onClick={() => removeWp(i)}>–</button>
+                  <button className="icon-btn" title="Tussenpunt verwijderen" aria-label="Tussenpunt verwijderen" onClick={() => removeWp(i)}>–</button>
                 )}
               </div>
             ))}
@@ -395,21 +516,27 @@ export default function App() {
           {loadError && <div className="hint error">{loadError}</div>}
           {busy && <div className="hint">Route berekenen…</div>}
           {message && !busy && (
-            <div className="hint error">
-              {message} <button onClick={() => setMessage(null)}>ok</button>
+            <div className="hint error" role="alert">
+              {message} <button onClick={() => setMessage(null)}>Sluiten</button>
             </div>
           )}
         </div>
       )}
 
-      {tab === 'kaart' && !navigating && !poi && !showProfile && routes.length === 0 && (
-        <button className="fab" onClick={() => { startGps(); setFollow(true); }} title="Mijn locatie">📍</button>
-      )}
-      {tab === 'kaart' && !navigating && gps && !follow && routes.length > 0 && (
-        <button className="fab" onClick={() => setFollow(true)} title="Centreer op mijn locatie">📍</button>
+      {tab === 'kaart' && !navigating && !poi && !showProfile && (routes.length === 0 || !follow) && (
+        <button className="fab" onClick={() => { startGps(); setFollow(true); }} title={routes.length === 0 ? 'Mijn locatie' : 'Centreer op mijn locatie'} aria-label={routes.length === 0 ? 'Mijn locatie' : 'Centreer op mijn locatie'}>📍</button>
       )}
 
-      {showProfile && <ProfilePanel profile={profile} onChange={setProfile} onClose={() => setShowProfile(false)} />}
+      {showProfile && (
+        <ProfilePanel
+          profile={profile}
+          onChange={(p) => {
+            setProfile(p);
+            confirmBoat();
+          }}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
 
       {tab === 'kaart' && poi && !showProfile && (
         <PoiPanel
@@ -439,30 +566,35 @@ export default function App() {
           onMultiDay={setMultiDay}
           hoursPerDay={settings.hoursPerDay}
           onHours={(h) => setSettings((s) => ({ ...s, hoursPerDay: h }))}
-          onSaveTrip={saveTrip}
+          onSaveTrip={() => filled.length >= 2 && setNaming(`${from?.name ?? ''} naar ${to?.name ?? ''}`)}
           destPois={destPois}
           onPoi={(p) => setPoi(p)}
           onFocus={(p) => setFocusPoint([...p])}
           weatherPoint={from?.point ?? null}
           tab={routeTab}
           onTab={setRouteTab}
+          boatCheck={check ? { kind: check, text: boatCheckText(check, profile) } : null}
+          onBoatEdit={() => setShowProfile(true)}
+          onBoatOk={confirmBoat}
         />
       )}
 
-      {navigating && route && (
+      {navigating && (
         <>
           <NavPanel
             route={route}
             nav={nav}
+            destination={to?.name ?? 'je bestemming'}
             speedKmh={gps?.speed ?? null}
             heading={gps?.heading ?? null}
             gpsError={gpsError}
             onStop={stopNavigation}
             onRecalc={recalc}
             following={follow}
-            onFollow={() => setFollow(true)}
+            onFollow={() => { startGps(); setFollow(true); }}
             voice={settings.voice}
             onVoice={() => setSettings((s) => ({ ...s, voice: !s.voice }))}
+            onEmergency={openEmergency}
           />
           {approach && tab === 'kaart' && (
             <ApproachCard
@@ -479,19 +611,47 @@ export default function App() {
 
       {tab === 'tochten' && (
         <div className="overlay">
-          <TripsView trips={trips} onOpen={openTrip} onDelete={(id) => setTrips((ts) => ts.filter((t) => t.id !== id))} onNew={() => { setWaypoints([null, null]); setRoutes([]); setTab('kaart'); }} />
+          {backToNav}
+          <TripsView trips={trips} onOpen={openTrip} onDelete={deleteTrip} onNew={() => { setWaypoints([null, null]); setRoutes([]); setTab('kaart'); }} />
         </div>
       )}
       {tab === 'leren' && (
         <div className="overlay">
+          {backToNav}
           <LessonsView key={lessonToOpen ?? 'list'} initial={lessonToOpen} />
         </div>
       )}
       {tab === 'meer' && (
         <div className="overlay">
-          <MoreView settings={settings} onSettings={setSettings} profile={profile} onEditProfile={() => { setTab('kaart'); setShowProfile(true); }} weatherPoint={weatherPoint} />
+          {backToNav}
+          <MoreView
+            key={moreTab}
+            initialTab={moreTab}
+            settings={settings}
+            onSettings={setSettings}
+            profile={profile}
+            onEditProfile={() => { setTab('kaart'); setShowProfile(true); }}
+            weatherPoint={weatherPoint}
+            notify={notify}
+            onEmergency={openEmergency}
+            onRestartOnboarding={() => { setTab('kaart'); setOnboarding('welkom'); }}
+          />
         </div>
       )}
+
+      {showEmergency && <EmergencyView gps={gps ? { pos: gps.pos, acc: gps.acc } : null} gpsError={gpsError} graph={graph} pois={pois} boatName={profile.name} onClose={closeEmergency} notify={notify} />}
+      {onboarding && (
+        <Onboarding
+          start={onboarding}
+          profile={profile}
+          onProfile={setProfile}
+          onAccept={(skipped) => setSettings((s) => (onboarding === 'afspraak' ? acceptDisclaimer(s) : completeOnboarding(s, profile, skipped)))}
+          onClose={() => setOnboarding(null)}
+          onOpen={openFromOnboarding}
+        />
+      )}
+      <Toast notice={notice} onClose={closeNotice} />
+      {naming != null && <TripNameDialog initial={naming} onCancel={() => setNaming(null)} onSave={saveTrip} />}
 
       <nav className="tabbar">
         {(
@@ -502,8 +662,8 @@ export default function App() {
             ['meer', '⛵', 'Aan boord'],
           ] as [Tab, string, string][]
         ).map(([id, icon, label]) => (
-          <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); if (id !== 'leren') setLessonToOpen(null); }}>
-            <span>{icon}</span>
+          <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); if (id !== 'leren') setLessonToOpen(null); if (id === 'meer') setMoreTab('weer'); }}>
+            <span aria-hidden="true">{icon}</span>
             {label}
           </button>
         ))}

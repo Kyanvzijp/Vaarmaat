@@ -41,7 +41,7 @@ export default function TripsView({ trips, onOpen, onDelete, onNew }: { trips: T
     <div className="page">
       <div className="page-head">
         <h2>Mijn tochten</h2>
-        <p className="muted small">Bewaarde routes met tussenpunten en dagindeling. Plan een route op de kaart en kies "Bewaren als tocht".</p>
+        <p className="muted small">Bewaarde routes met tussenpunten en dagindeling. Plan een route op de kaart en kies Bewaren.</p>
       </div>
       <button className="primary" onClick={onNew}>+ Nieuwe tocht plannen</button>
       {trips.length === 0 && <p className="muted small">Nog geen tochten bewaard.</p>}
@@ -55,7 +55,7 @@ export default function TripsView({ trips, onOpen, onDelete, onNew }: { trips: T
               <small className="muted">{t.hoursPerDay} vaaruur per dag · vertrek {t.startTime} · bewaard {new Date(t.createdAt).toLocaleDateString('nl-NL')}</small>
               <span className="log-actions">
                 <button className="small-btn primary" onClick={() => onOpen(t)}>Openen</button>
-                <button className="small-btn" onClick={() => onDelete(t.id)}>Wis</button>
+                <button className="small-btn" onClick={() => onDelete(t.id)}>Verwijderen</button>
               </span>
             </span>
           </div>

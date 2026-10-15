@@ -19,9 +19,17 @@ const pick = async (label, q, result) => {
 };
 await p.goto(url);
 await p.waitForTimeout(4000);
+// onboarding bij de eerste start
+await shot('00a_welkom');
+await p.getByText('Boot instellen', { exact: true }).click(); await p.waitForTimeout(300);
+await p.getByText('Ja, ik huur', { exact: true }).click(); await p.waitForTimeout(200); await shot('00b_boot');
+await p.getByText('Volgende', { exact: true }).click(); await p.waitForTimeout(300); await shot('00c_maten');
+await p.getByText('Volgende', { exact: true }).click(); await p.waitForTimeout(300); await shot('00d_afspraak');
+await p.getByText('Begrepen, laten we varen', { exact: true }).click(); await p.waitForTimeout(300); await shot('00e_huur');
+await p.getByText('Naar de kaart', { exact: true }).click(); await p.waitForTimeout(500);
 await shot('01_start');
-await pick('A', 'Kaag', 'Kaag (Kaagdorp)');
-await pick('B', 'Leiden', 'Leiden centrum');
+await pick('Vertrekpunt', 'Kaag', 'Kaag (Kaagdorp)');
+await pick('Bestemming', 'Leiden', 'Leiden centrum');
 await p.waitForTimeout(2500);
 await shot('02_route');
 console.log('route:', await p.locator('text=/^\\d+ (min|u)/').first().textContent().catch(() => 'niet gevonden'));
@@ -37,5 +45,8 @@ await p.getByText('⚙️ Instellingen').click(); await p.waitForTimeout(300); a
 await p.getByText('Tochten', { exact: true }).last().click(); await p.waitForTimeout(300); await shot('10_trips');
 await p.getByText('Kaart', { exact: true }).last().click(); await p.waitForTimeout(300);
 await p.getByLabel('Bootprofiel').click(); await p.waitForTimeout(400); await shot('11_profile');
+await p.getByText('Opslaan', { exact: true }).click(); await p.waitForTimeout(300);
+await p.getByText('Aan boord', { exact: true }).last().click(); await p.waitForTimeout(500);
+await p.getByText('Nood', { exact: true }).first().click(); await p.waitForTimeout(1500); await shot('12_nood');
 console.log(JSON.stringify(errors, null, 1));
 await b.close();

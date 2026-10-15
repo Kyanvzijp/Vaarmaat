@@ -74,10 +74,14 @@ export interface BoatProfile {
   margin: number;
   /** vermijd bruggen met onbekende hoogte */
   avoidUnknownBridges: boolean;
+  /** huurboot: de app biedt na de onboarding uitleg voor wie voor het eerst vaart */
+  rental?: boolean;
+  /** hoogte is geschat ("Ik weet het niet precies"), nog niet gemeten */
+  heightUnsure?: boolean;
 }
 
 export interface RouteStep {
-  kind: 'depart' | 'left' | 'right' | 'slight_left' | 'slight_right' | 'sharp_left' | 'sharp_right' | 'straight' | 'bridge' | 'movable_bridge' | 'lock' | 'arrive' | 'uturn';
+  kind: 'depart' | 'left' | 'right' | 'slight_left' | 'slight_right' | 'sharp_left' | 'sharp_right' | 'straight' | 'bridge' | 'movable_bridge' | 'lock' | 'waypoint' | 'arrive' | 'uturn';
   text: string;
   detail?: string;
   /** afstand vanaf start (m) */
@@ -87,6 +91,11 @@ export interface RouteStep {
   point: LatLng;
   /** index in route.coords */
   idx: number;
+  /**
+   * Stille stap: staat in de stappenlijst, maar is geen instructie tijdens het varen (je hoeft niets te doen),
+   * bijvoorbeeld een vaste brug met ruim voldoende hoogte. Zie NAV-01 in docs/VERBETERPLAN.md.
+   */
+  quiet?: true;
 }
 
 /** Stuk over land tussen het gekozen punt en het water (lopen, auto of ov) */
@@ -177,4 +186,16 @@ export interface LogEntry {
   maxSpeed: number;
   avgSpeed: number;
   track: LatLng[];
+  /** tijdstip per punt van het spoor (ms sinds 1970), even lang als track; ontbreekt bij oudere tochten */
+  times?: number[];
+}
+
+/** Tocht die nu gevaren wordt; wordt tijdens navigatie bewaard zodat het spoor een herstart of crash overleeft */
+export interface ActiveTrip {
+  startedAt: number;
+  from: string;
+  to: string;
+  track: LatLng[];
+  times: number[];
+  maxSpeed: number;
 }

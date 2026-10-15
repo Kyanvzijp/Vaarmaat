@@ -10,7 +10,7 @@ Wat de app doet:
 - Snelste route plus twee alternatieven, met afstand in km, vaartijd, aankomsttijd en de vaarwegen die je volgt.
 - Afslag voor afslag: "Sla linksaf naar de Oude Rijn", "Vaar onder Zijlbrug door (4,90 m)", "Wacht op opening Lisserbrug", "Schut door sluis".
 - Bootprofiel: type, hoogte boven water, diepgang, breedte, kruissnelheid, marge onder bruggen, wel of niet wachten op beweegbare bruggen. Bruggen die te laag zijn worden vermeden; als er geen route past legt de app uit welke brug blokkeert.
-- Live navigatie met GPS: volgende instructie, afstand tot de afslag, snelheid in km/u, resterende tijd, aankomsttijd, koers, en herberekenen als je van de route afwijkt.
+- Live navigatie met GPS: volgende instructie, afstand tot de afslag, snelheid in km/u, resterende tijd, aankomsttijd, koers, en automatisch herberekenen als je van de route afwijkt. Alleen instructies als je iets moet doen; het scherm blijft aan en je telefoon trilt bij een nieuwe instructie.
 - Tussenpunten en meerdaagse tochten: vaaruren per dag instellen, de app knipt de route in dagetappes en stelt jachthavens of aanlegplaatsen voor om te overnachten. Tochten bewaren onder Mijn tochten.
 - Havens, aanlegplaatsen, tankstations, vuilwaterstations, trailerhellingen en verboden (afmeer- of ankerverbod) op de kaart, met liggeld, telefoon, website en voorzieningen waar bekend. Tabblad Aanleggen toont wat er bij je bestemming is.
 - Nadering van een sluis of beweegbare brug: X minuten van tevoren (instelbaar) verschijnt een kaart met marifoonkanaal, telefoonnummer en bedieningstijden (indien bekend), een voorbereidingschecklist en de bijbehorende uitleg.
@@ -18,6 +18,8 @@ Wat de app doet:
 - Weer en wind via Open-Meteo met een vaaradvies (windkracht, vlagen, onweer, regen), zonsopkomst en zonsondergang.
 - Checklists (vertrek, sluis en brug, aankomst, seizoen) en een automatisch logboek van gevaren tochten met GPX export.
 - Kaartlagen: OpenStreetMap, satelliet en OpenSeaMap symbolen. Werkt als web app op telefoon (toevoegen aan beginscherm).
+- Eerste start: korte onboarding om je boot in te stellen (type, hoogte boven water, diepgang, snelheid) en een disclaimer die je één keer bevestigt.
+- Noodscherm, altijd gratis en offline: bel 112, je positie in graden en minuten met de vaarweg en een herkenningspunt, positie delen, Kustwacht en een ingevulde Mayday-tekst voor de marifoon.
 
 ## Lokaal draaien
 
@@ -34,6 +36,7 @@ Controles die groen moeten blijven:
 npm run build        # TypeScript strict en Vite
 npm run lint         # oxlint
 npm run test:routes  # bekende routes (Kaag naar Leiden, Alphen naar Amsterdam, ...)
+npm run test:units   # unit-tests: navigatie, tussenpunten, logboek en GPX
 npm run preview & npm run screenshot   # schermafbeeldingen op telefoon en desktop, geen console-errors
 ```
 
@@ -58,7 +61,7 @@ De frontend werkt zonder backend. Accounts, synchronisatie, het Plus-abonnement,
 - `src/backend/` met inloggen via magic link, synchronisatie van tochten, logboek, favorieten, lesvoortgang en profiel, en de Plus-status.
 - `src/components/PlusGate.tsx` en `src/analytics.ts`.
 
-Lees `docs/LOVABLE.md` (stappenplan en projectkennis voor Lovable), `docs/BACKEND.md` (contracten van tabellen, functies en feeds) en `docs/APPSTORE.md` (de latere overstap naar de App Store en Google Play).
+Lees `docs/LOVABLE.md` (stappenplan en projectkennis voor Lovable), `docs/BACKEND.md` (contracten van tabellen, functies en feeds) en `docs/APPSTORE.md` (de latere overstap naar de App Store en Google Play). `docs/VERBETERPLAN.md` bevat de bevindingen van een volledige check en de user stories om de app professioneel te maken, met releaseplan.
 
 ## Deployen
 
@@ -103,6 +106,10 @@ src/
   lastmile.ts        stuk over land: loopafstand en links naar loop-, auto- en ov-routes
   trip.ts            tussenpunten, dagetappes en overnachtingsvoorstellen
   navigation.ts      positie op de route, resterende afstand en tijd
+  logbook.ts         tocht vastleggen tijdens het varen, herstel na een crash, GPX-export
+  onboarding.ts      eerste start: teksten, disclaimerversie, status en de vraag of het bootprofiel klopt
+  emergency.ts       noodscherm: positie omschrijven, nummers en Mayday-tekst
+  reroute.ts         automatisch herberekenen: wanneer, terug naar de oude route, gepasseerde tussenpunten
   voice.ts           gesproken instructies
   weather.ts         Open-Meteo en vaaradvies
   pois.ts            havens en voorzieningen
@@ -118,10 +125,11 @@ scripts/
   fetch_pois.mjs     havens en bediening ophalen build_pois.py  POI's bouwen en bedieningsinfo koppelen
   refine_graph.py    dubbele bruggen samenvoegen (na build_graph.py)
   test_route.ts      routes controleren in de terminal, met regressiecontrole op bekende routes
+  test_units.ts      unit-tests voor gedeelde logica (node:test via tsx)
   screenshot.mjs     schermafbeeldingen met Playwright      icons.mjs       PNG-iconen uit de SVG
 mobile/                 app voor iOS en Android (Expo), zie mobile/README.md
 supabase/migrations/    databaseschema met RLS
-docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md
+docs/                   SPEC.md, STYLEGUIDE.md, LOVABLE.md, BACKEND.md, APPSTORE.md, VERBETERPLAN.md
 public/data/graph.json  voorberekende vaarwegengraaf
 public/data/pois.json   havens, aanlegplaatsen, voorzieningen, verboden
 ```

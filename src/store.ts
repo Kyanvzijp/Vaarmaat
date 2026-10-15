@@ -1,4 +1,4 @@
-import type { Trip, LogEntry } from './types';
+import type { Trip, LogEntry, ActiveTrip } from './types';
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -16,6 +16,14 @@ function write(key: string, value: unknown) {
   }
 }
 
+function remove(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* opslag niet beschikbaar */
+  }
+}
+
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 const K = {
@@ -25,6 +33,7 @@ const K = {
   lessons: 'vaarmaat.lessons.v1',
   settings: 'vaarmaat.settings.v1',
   favs: 'vaarmaat.favs.v1',
+  active: 'vaarmaat.active.v1',
 };
 
 export const loadTrips = () => read<Trip[]>(K.trips, []);
@@ -49,10 +58,26 @@ export interface Settings {
   showPois: boolean;
   hoursPerDay: number;
   startTime: string;
+  /** onboarding afgerond (ISO), zie src/onboarding.ts */
+  onboardedAt?: string;
+  /** onboarding overgeslagen (ISO): de eerste route vraagt dan of het bootprofiel klopt */
+  onboardingSkippedAt?: string;
+  /** versie van de bevestigde disclaimer; bij een nieuwe versie vraagt de app opnieuw */
+  disclaimerVersion?: number;
+  /** de gebruiker heeft bevestigd dat het bootprofiel klopt */
+  boatConfirmed?: boolean;
+  /** trillen bij een nieuwe instructie en bij de naderingskaart (styleguide 10) */
+  haptics: boolean;
+  /** de tip over schermvergrendeling is al eens getoond (als het scherm niet aan kan blijven) */
+  wakeLockTipShown?: boolean;
 }
-export const DEFAULT_SETTINGS: Settings = { voice: true, prepMinutes: 20, showPois: true, hoursPerDay: 5, startTime: '10:00' };
+export const DEFAULT_SETTINGS: Settings = { voice: true, prepMinutes: 20, showPois: true, hoursPerDay: 5, startTime: '10:00', haptics: true };
 export const loadSettings = () => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(K.settings, {}) });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 
 export const loadFavs = () => read<string[]>(K.favs, []);
 export const saveFavs = (f: string[]) => write(K.favs, f);
+
+/** Tocht die nu gevaren wordt (zie src/logbook.ts) */
+export const loadActiveTrip = () => read<ActiveTrip | null>(K.active, null);
+export const saveActiveTrip = (a: ActiveTrip | null) => (a ? write(K.active, a) : remove(K.active));

@@ -11,7 +11,8 @@
     "typecheck": "tsc -b",
     "test:routes": "tsx scripts/test_route.ts",
     "screenshot": "node scripts/screenshot.mjs",
-    "icons": "node scripts/icons.mjs"
+    "icons": "node scripts/icons.mjs",
+    "test:units": "tsx --test scripts/test_units.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

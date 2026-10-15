@@ -24,8 +24,8 @@ export interface Stage {
   endClock: string;
 }
 
-/** Voeg meerdere routes achter elkaar (waypoints) */
-export function concatRoutes(parts: RouteResult[]): RouteResult {
+/** Voeg meerdere routes achter elkaar (waypoints). `names` zijn de namen van alle punten, van vertrek tot bestemming. */
+export function concatRoutes(parts: RouteResult[], names: string[] = []): RouteResult {
   if (parts.length === 1) return parts[0];
   const first = parts[0];
   const coords: LatLng[] = [...first.coords];
@@ -45,9 +45,10 @@ export function concatRoutes(parts: RouteResult[]): RouteResult {
   for (let k = 1; k < parts.length; k++) {
     const p = parts[k];
     const off = distance;
-    // laatste 'arrive' stap van vorige deel wordt een tussenstop
+    // laatste 'arrive' stap van vorige deel wordt een tussenpunt
     const arrive = steps.pop()!;
-    steps.push({ ...arrive, kind: 'straight', text: `Tussenstop ${k}: ${arrive.text.replace('Bestemming bereikt', 'via')}`, dist: 0 });
+    const name = names[k];
+    steps.push({ ...arrive, kind: 'waypoint', text: name ? `Tussenpunt ${k}: ${name}` : `Tussenpunt ${k}`, detail: undefined, dist: 0 });
     for (let i = 1; i < p.coords.length; i++) {
       coords.push(p.coords[i]);
       cum.push(off + p.cum[i]);
@@ -102,7 +103,7 @@ export function routeWaypoints(g: Graph, points: { point: LatLng; name: string }
     if (points.length === 2) return { routes: out.routes };
     parts.push(out.routes[0]);
   }
-  return { routes: [concatRoutes(parts)] };
+  return { routes: [concatRoutes(parts, points.map((p) => p.name))] };
 }
 
 const clock = (startMin: number, plusSec: number) => {

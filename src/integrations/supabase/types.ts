@@ -42,6 +42,8 @@ export type LogRow = {
   max_speed: number;
   avg_speed: number;
   track: Json;
+  /** tijd per punt van het spoor (ms sinds 1970), null bij oudere tochten */
+  track_times: Json | null;
   created_at: string;
   updated_at: string;
 }
