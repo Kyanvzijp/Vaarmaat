@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.6 (15 oktober 2026)
+Navigatie uit `docs/VERBETERPLAN.md` (NAV-01, NAV-02, NAV-03), in de webapp en de app.
+- Rustige instructies: vaste bruggen met ruim voldoende hoogte en "Vaar door op ..." zijn stille stappen (grijs in de stappenlijst, geen melding onderweg). Krappe bruggen krijgen "Let op: Schrijversbrug 1,60 m, je hebt 0,20 m ruimte". Bruggen met onbekende hoogte vlak achter elkaar krijgen één melding ("de komende 9 bruggen"). Een gewone vaste brug binnen 200 m van een sluis, beweegbare brug of afslag wordt stil. Twee instructies binnen 200 m worden samen genoemd ("..., daarna sla linksaf"). Delft naar Loosdrecht: van 63 naar 24 instructies, bewaakt in `npm run test:routes`.
+- Automatisch herberekenen: na 20 seconden meer dan 80 m van de route, of meteen als je op een andere vaarweg vaart; hoogstens eens per 30 seconden. Leidt de nieuwe route je alleen terug naar de oude, dan blijft de oude staan. Gepasseerde tussenpunten worden overgeslagen (ook bij de knop Herbereken). Melding en spraak: "Nieuwe route berekend, 4 min langer".
+- Scherm aan tijdens navigatie met de Screen Wake Lock (opnieuw na terugkomen in de app, los bij Stop); lukt dat niet, dan één keer een tip over de schermvergrendeling. In de app bleef het scherm al aan.
+- Trillen bij een nieuwe instructie en bij de naderingskaart (web: Vibration API, app: `expo-haptics`), uit te zetten in Instellingen.
+- Fout opgelost: na een GPS-sprong (of nadat je positie ver naast de route op het eindpunt viel) vond de navigatie je positie op de route niet meer terug en meldde hij honderden meters afwijking. Snelheden boven 80 km/u tellen niet mee voor de aankomsttijd.
+- Gedeeld in `src/navigation.ts` (`nextCue`, `nextAnnounced`) en `src/reroute.ts`, met unit-tests.
+
 ## 2.5 (14 oktober 2026)
 Eerste gebruik en veiligheid uit `docs/VERBETERPLAN.md` (ONB-01, ONB-02, VEI-01), in de webapp en de app.
 - Onboarding bij de eerste start: welkom, boottype (met de vraag of het een huurboot is), hoogte boven water met tekening, diepgang en kruissnelheid. "Ik weet het niet precies" neemt de standaardmaten van het type en markeert de hoogte als geschat. Opnieuw doorlopen via Aan boord, Instellingen.

@@ -420,6 +420,7 @@ Acceptatiecriteria:
 ### Epic NAV: navigatie
 
 #### NAV-01 Rustige instructies: alleen wat ertoe doet
+**Status: gebouwd in 2.6**, web en app. Delft naar Loosdrecht: 24 van 63 stappen zijn nog een instructie. Extra: ook "Vaar door op ..." (het water loopt gewoon door onder een andere naam) is een stille stap, en twee instructies binnen 200 m worden samen uitgesproken. Botsingsregel: een gewone vaste brug binnen 200 m van een belangrijkere stap wordt stil; krappe bruggen en de melding over onbekende bruggen blijven altijd.
 **Als** schipper **wil ik** alleen instructies krijgen op momenten dat ik iets moet doen **zodat** ik de app vertrouw en niet ga negeren.
 Prioriteit: Must · Omvang: M · Gratis
 
@@ -431,6 +432,7 @@ Acceptatiecriteria:
 - Volgorde van belang bij botsing binnen 200 m: sluis, beweegbare brug, afslag, vaste brug.
 
 #### NAV-02 Automatisch herberekenen
+**Status: gebouwd in 2.6**, web en app. "Terug naar de oude route" betekent: de nieuwe route sluit aan op de oude tot het einde van het stuk vaarweg waar je naast ligt (plus 150 m). Sluit hij pas verder aan, dan is het een echte nieuwe route.
 **Als** schipper die een andere afslag neemt **wil ik** dat de app vanzelf een nieuwe route maakt **zodat** ik niet hoef te stoppen om op een knop te drukken.
 Prioriteit: Must · Omvang: M · Gratis
 
@@ -442,6 +444,7 @@ Acceptatiecriteria:
 - Tussenpunten die je al gepasseerd bent, worden overgeslagen.
 
 #### NAV-03 Scherm aan en haptiek
+**Status: gebouwd in 2.6.** Web: Wake Lock en Vibration API (op iPhone heeft Safari geen trilfunctie; de instelling staat daar uit met uitleg). App: `expo-keep-awake` en `expo-haptics`.
 **Als** schipper **wil ik** dat het scherm aan blijft tijdens navigatie en dat mijn telefoon trilt bij een nieuwe instructie **zodat** ik niet steeds hoef te ontgrendelen.
 Prioriteit: Must · Omvang: S · Gratis
 

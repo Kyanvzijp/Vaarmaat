@@ -10,7 +10,7 @@ Wat de app doet:
 - Snelste route plus twee alternatieven, met afstand in km, vaartijd, aankomsttijd en de vaarwegen die je volgt.
 - Afslag voor afslag: "Sla linksaf naar de Oude Rijn", "Vaar onder Zijlbrug door (4,90 m)", "Wacht op opening Lisserbrug", "Schut door sluis".
 - Bootprofiel: type, hoogte boven water, diepgang, breedte, kruissnelheid, marge onder bruggen, wel of niet wachten op beweegbare bruggen. Bruggen die te laag zijn worden vermeden; als er geen route past legt de app uit welke brug blokkeert.
-- Live navigatie met GPS: volgende instructie, afstand tot de afslag, snelheid in km/u, resterende tijd, aankomsttijd, koers, en herberekenen als je van de route afwijkt.
+- Live navigatie met GPS: volgende instructie, afstand tot de afslag, snelheid in km/u, resterende tijd, aankomsttijd, koers, en automatisch herberekenen als je van de route afwijkt. Alleen instructies als je iets moet doen; het scherm blijft aan en je telefoon trilt bij een nieuwe instructie.
 - Tussenpunten en meerdaagse tochten: vaaruren per dag instellen, de app knipt de route in dagetappes en stelt jachthavens of aanlegplaatsen voor om te overnachten. Tochten bewaren onder Mijn tochten.
 - Havens, aanlegplaatsen, tankstations, vuilwaterstations, trailerhellingen en verboden (afmeer- of ankerverbod) op de kaart, met liggeld, telefoon, website en voorzieningen waar bekend. Tabblad Aanleggen toont wat er bij je bestemming is.
 - Nadering van een sluis of beweegbare brug: X minuten van tevoren (instelbaar) verschijnt een kaart met marifoonkanaal, telefoonnummer en bedieningstijden (indien bekend), een voorbereidingschecklist en de bijbehorende uitleg.
@@ -109,6 +109,7 @@ src/
   logbook.ts         tocht vastleggen tijdens het varen, herstel na een crash, GPX-export
   onboarding.ts      eerste start: teksten, disclaimerversie, status en de vraag of het bootprofiel klopt
   emergency.ts       noodscherm: positie omschrijven, nummers en Mayday-tekst
+  reroute.ts         automatisch herberekenen: wanneer, terug naar de oude route, gepasseerde tussenpunten
   voice.ts           gesproken instructies
   weather.ts         Open-Meteo en vaaradvies
   pois.ts            havens en voorzieningen
