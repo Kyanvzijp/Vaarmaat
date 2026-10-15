@@ -66,8 +66,12 @@ export interface Settings {
   disclaimerVersion?: number;
   /** de gebruiker heeft bevestigd dat het bootprofiel klopt */
   boatConfirmed?: boolean;
+  /** trillen bij een nieuwe instructie en bij de naderingskaart (styleguide 10) */
+  haptics: boolean;
+  /** de tip over schermvergrendeling is al eens getoond (als het scherm niet aan kan blijven) */
+  wakeLockTipShown?: boolean;
 }
-export const DEFAULT_SETTINGS: Settings = { voice: true, prepMinutes: 20, showPois: true, hoursPerDay: 5, startTime: '10:00' };
+export const DEFAULT_SETTINGS: Settings = { voice: true, prepMinutes: 20, showPois: true, hoursPerDay: 5, startTime: '10:00', haptics: true };
 export const loadSettings = () => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(K.settings, {}) });
 export const saveSettings = (s: Settings) => write(K.settings, s);
 

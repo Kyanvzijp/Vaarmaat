@@ -126,6 +126,10 @@ button.danger { background: #ffe8e8 !important; color: var(--err) !important; bo
 .step-body { display: flex; flex-direction: column; gap: 1px; flex: 1; font-size: 14px; }
 .step-body small { font-size: 12px; color: var(--muted); }
 .step-at { font-size: 12px; flex: none; padding-top: 3px; }
+/* stille stap (NAV-01): staat erbij, maar is geen instructie onderweg */
+.steps li.quiet { padding: 4px 4px; }
+.steps li.quiet .step-icon { width: 22px; height: 22px; font-size: 12px; margin: 0 4px; background: var(--canvas); opacity: 0.7; }
+.steps li.quiet .step-body, .steps li.quiet .step-body b { font-weight: 400; color: var(--muted); font-size: 13px; }
 
 /* Bootprofiel */
 .boat-types { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }

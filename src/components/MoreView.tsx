@@ -115,6 +115,8 @@ interface Props {
 
 type MoreTab = 'weer' | 'check' | 'log' | 'inst';
 
+const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+
 export default function MoreView({ settings, onSettings, profile, onEditProfile, weatherPoint, notify, onEmergency, onRestartOnboarding, initialTab = 'weer' }: Props) {
   const [tab, setTab] = useState<MoreTab>(initialTab);
   return (
@@ -150,6 +152,10 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
           <label className="toggle">
             <input type="checkbox" checked={settings.voice} disabled={!voiceAvailable()} onChange={(e) => onSettings({ ...settings, voice: e.target.checked })} />
             <span>Gesproken instructies tijdens navigatie{voiceAvailable() ? '' : ' (niet beschikbaar in deze browser)'}</span>
+          </label>
+          <label className="toggle">
+            <input type="checkbox" checked={settings.haptics && canVibrate} disabled={!canVibrate} onChange={(e) => onSettings({ ...settings, haptics: e.target.checked })} />
+            <span>Trillen bij een nieuwe instructie en bij een sluis of brug{canVibrate ? '' : ' (niet beschikbaar in deze browser)'}</span>
           </label>
           <label className="toggle">
             <input type="checkbox" checked={settings.showPois} onChange={(e) => onSettings({ ...settings, showPois: e.target.checked })} />

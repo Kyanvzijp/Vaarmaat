@@ -92,7 +92,7 @@ export default function RoutePanel(p: Props) {
   const long = r.duration > p.hoursPerDay * 3600;
   const opsSteps = r.steps.filter((s) => s.kind === 'movable_bridge' || s.kind === 'lock');
   const tabLabel = (t: RouteTab) =>
-    t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer';
+    t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.filter((s) => !s.quiet && s.kind !== 'depart').length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer';
 
   return (
     <Sheet
@@ -169,10 +169,10 @@ export default function RoutePanel(p: Props) {
 
       {p.tab === 'stappen' &&
         r.steps.map((s, i) => (
-          <Pressable key={i} style={st.step} onPress={() => p.onStepClick(s)}>
+          <Pressable key={i} style={[st.step, s.quiet && { opacity: 0.75 }]} onPress={() => p.onStepClick(s)}>
             <StepIcon kind={s.kind} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={[T.label, { fontSize: 14, color: C.ink }]}>{s.text}</Text>
+              <Text style={s.quiet ? [T.meta, { fontSize: 13, color: C.muted }] : [T.label, { fontSize: 14, color: C.ink }]}>{s.text}</Text>
               {s.detail && <Text style={[T.meta, { color: C.ink }]}>{s.detail}</Text>}
               {s.kind !== 'arrive' && <Muted>daarna {formatDistance(s.dist)}</Muted>}
             </View>

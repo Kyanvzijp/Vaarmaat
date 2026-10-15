@@ -144,6 +144,7 @@ export default function MoreView({ settings, onSettings, profile, onEditProfile,
         <View style={{ gap: 12 }}>
           <Card icon="🛥️" title={profile.name} lines={[`hoogte ${profile.height.toFixed(2).replace('.', ',')} m · diepgang ${profile.draft.toFixed(2).replace('.', ',')} m · ${profile.speed} km/u`]} onPress={onEditProfile} />
           <Toggle label="Gesproken instructies tijdens navigatie" value={settings.voice} onChange={(v) => onSettings({ ...settings, voice: v })} />
+          <Toggle label="Trillen bij een nieuwe instructie en bij een sluis of brug" value={settings.haptics} onChange={(v) => onSettings({ ...settings, haptics: v })} />
           <Toggle label="Havens, aanlegplaatsen en voorzieningen op de kaart tonen" value={settings.showPois} onChange={(v) => onSettings({ ...settings, showPois: v })} />
           <NumField integer label="Voorbereiding op sluis of brug tonen vanaf" value={settings.prepMinutes} min={5} max={60} unit="min van tevoren" onChange={(v) => onSettings({ ...settings, prepMinutes: v || 20 })} />
           <NumField label="Vaaruren per dag (tochtplanner)" value={settings.hoursPerDay} min={1} max={14} unit="uur" onChange={(v) => onSettings({ ...settings, hoursPerDay: v || 5 })} />

@@ -1,4 +1,4 @@
-import type { NavState } from '../navigation';
+import { nextAnnounced, type NavState } from '../navigation';
 import type { RouteResult } from '../types';
 import { formatDistance, formatDuration, formatSpeed, compassName } from '../geo';
 import { STEP_ICONS } from '../stepIcons';
@@ -31,7 +31,7 @@ export default function NavPanel({ route, nav, destination, speedKmh, heading, g
   // alleen aangekomen als je ook echt op de route bent: ver ernaast valt je positie op het eindpunt
   const arrived = !!nav && !off && nav.remaining < ARRIVED;
   const leg = route?.access?.end;
-  const then = route && next && !off && !arrived ? route.steps[route.steps.indexOf(next) + 1] : undefined;
+  const then = route && next && !off && !arrived ? nextAnnounced(route, next) : undefined;
   return (
     <>
       <div className="nav-top" aria-live="polite">

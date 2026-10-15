@@ -103,3 +103,20 @@ export function formatDecimalDeg(p: LatLng): string {
   const f = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(5).replace('.', ',')}° ${v >= 0 ? pos : neg}`;
   return `${f(p[0], 'N', 'Z')}, ${f(p[1], 'O', 'W')}`;
 }
+
+/** Afstand in spreektaal voor gesproken instructies: "over 350 meter", "over 1,2 kilometer", "nu" */
+export function spokenDistance(m: number): string {
+  if (m < 60) return 'nu';
+  if (m < 1000) return `over ${Math.round(m / 50) * 50} meter`;
+  const km = m / 1000;
+  return `over ${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} kilometer`;
+}
+
+/** Duur in spreektaal: "4 minuten", "1 uur en 5 minuten" */
+export function spokenDuration(sec: number): string {
+  const min = Math.max(1, Math.round(sec / 60));
+  if (min < 60) return `${min} ${min === 1 ? 'minuut' : 'minuten'}`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h} uur` : `${h} uur en ${m} ${m === 1 ? 'minuut' : 'minuten'}`;
+}

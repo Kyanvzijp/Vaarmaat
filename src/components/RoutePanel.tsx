@@ -121,7 +121,7 @@ export default function RoutePanel(p: Props) {
       <div className="subtabs small">
         {(['route', 'stappen', 'tocht', 'aanleggen', 'weer'] as const).map((t) => (
           <button key={t} className={p.tab === t ? 'active' : ''} onClick={() => { p.onTab(t); if (!p.expanded) p.onToggle(); }}>
-            {t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer'}
+            {t === 'route' ? 'Route' : t === 'stappen' ? `Afslagen (${r.steps.filter((s) => !s.quiet && s.kind !== 'depart').length})` : t === 'tocht' ? (long ? `Dagindeling (${Math.max(1, p.stages.length)})` : 'Tocht') : t === 'aanleggen' ? 'Aanleggen' : 'Weer'}
           </button>
         ))}
       </div>
@@ -155,7 +155,7 @@ export default function RoutePanel(p: Props) {
       {p.tab === 'stappen' && (
         <ol className="steps">
           {r.steps.map((s, i) => (
-            <li key={i} className={s.kind} onClick={() => p.onStepClick(s)}>
+            <li key={i} className={`${s.kind}${s.quiet ? ' quiet' : ''}`} onClick={() => p.onStepClick(s)}>
               <span className="step-icon" aria-hidden="true">{STEP_ICONS[s.kind]}</span>
               <span className="step-body">
                 <b>{s.text}</b>

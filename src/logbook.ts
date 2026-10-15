@@ -2,6 +2,7 @@
 // Zonder browser-API's, zodat web en app (mobile/) dezelfde code gebruiken.
 import type { ActiveTrip, LatLng, LogEntry } from './types';
 import { haversine } from './geo';
+import { MAX_PLAUSIBLE_KMH } from './navigation';
 import { loadActiveTrip, loadLogs, saveActiveTrip, saveLogs, uid } from './store';
 
 /** Een tocht komt pas in het logboek als je minstens zo ver en zo lang gevaren hebt */
@@ -9,8 +10,6 @@ export const MIN_LOG_DISTANCE = 200;
 export const MIN_LOG_SECONDS = 60;
 /** Minimale afstand (m) tussen twee punten van het spoor */
 export const TRACK_STEP = 8;
-/** Snelheden hierboven (km/u) zijn GPS-sprongen, geen echte vaart; ze tellen niet als topsnelheid */
-export const MAX_PLAUSIBLE_KMH = 80;
 /** Maximaal aantal punten dat in het logboek bewaard wordt */
 const MAX_POINTS = 800;
 

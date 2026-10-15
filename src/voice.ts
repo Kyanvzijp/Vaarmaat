@@ -27,10 +27,5 @@ export function speak(text: string, force = false) {
   window.speechSynthesis.speak(u);
 }
 
-/** Zet afstand om in spreektaal */
-export function spokenDistance(m: number): string {
-  if (m < 60) return 'nu';
-  if (m < 1000) return `over ${Math.round(m / 50) * 50} meter`;
-  const km = m / 1000;
-  return `over ${km < 10 ? km.toFixed(1).replace('.', ',') : Math.round(km)} kilometer`;
-}
+// De tekstomzetting staat in geo.ts, zodat gedeelde code (navigation.ts) hem zonder browser-API's kan gebruiken.
+export { spokenDistance } from './geo';

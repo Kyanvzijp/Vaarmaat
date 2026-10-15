@@ -30,7 +30,7 @@ for (const [a, b] of pairs) {
   for (const rt of r.routes) console.log(`  ${rt.label}: ${formatDistance(rt.distance)} ${formatDuration(rt.duration)} (varen ${formatDuration(rt.sailTime)}, wachten ${formatDuration(rt.waitTime)}) bruggen=${rt.bridges.length} laagste=${rt.lowestBridge} onbekend=${rt.unknownBridges} sluizen=${rt.locks.length} via ${rt.waterways.slice(0, 8).join(' > ')}`);
   results[`${a}>${b}`] = r.routes[0];
   const main = r.routes[0];
-  for (const s of main.steps.slice(0, 40)) console.log(`   ${formatDistance(s.at).padStart(8)}  ${s.kind.padEnd(14)} ${s.text}${s.detail ? ' (' + s.detail + ')' : ''}`);
+  for (const s of main.steps.slice(0, 40)) console.log(`   ${formatDistance(s.at).padStart(8)}  ${s.kind.padEnd(14)} ${s.quiet ? '(stil) ' : ''}${s.text}${s.detail ? ' (' + s.detail + ')' : ''}`);
 }
 
 // Regressiecontrole op bekende routes (CLAUDE.md): afstand binnen een realistische marge
@@ -41,6 +41,19 @@ if (argvH == null) {
     const r = results[key];
     if (!r || r.distance < min || r.distance > max) {
       console.error(`FOUT: ${key} is ${r ? formatDistance(r.distance) : 'niet gevonden'}, verwacht ${formatDistance(min)} tot ${formatDistance(max)}`);
+      failed++;
+    }
+  }
+  // NAV-01: rustige navigatie. Op Delft naar Loosdrecht (veel vaste bruggen) is hoogstens de helft van de stappen
+  // onderweg een instructie; Kaag naar Leiden (veel echte afslagen door de grachten) alleen ter informatie.
+  for (const [a, b] of [['Delft', 'Loosdrechtse'], ['Kaag', 'Leiden centrum']] as [string, string][]) {
+    const pr = g.snapPair(pl(a).point, pl(b).point, 2500)!;
+    const r = computeRoutes(g, { from: pr.a.node, to: pr.b.node, fromPoint: pr.a.snapped, toPoint: pr.b.snapped, fromSnap: pr.a, toSnap: pr.b, profile: DEFAULT_PROFILE, alternatives: 0 }).routes[0];
+    const onWay = r.steps.filter((s) => s.kind !== 'depart');
+    const announced = onWay.filter((s) => !s.quiet).length;
+    console.log(`instructies ${a} > ${b}: ${announced} van ${onWay.length} stappen`);
+    if (a === 'Delft' && announced > onWay.length / 2) {
+      console.error(`FOUT: ${a} > ${b} heeft ${announced} instructies van ${onWay.length} stappen, verwacht hoogstens de helft`);
       failed++;
     }
   }

@@ -1,6 +1,6 @@
 // Navigatiemodus volgens STYLEGUIDE 8: instructiebalk bovenin, vijf getallen en drie knoppen onderin.
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { NavState } from '@shared/navigation';
+import { nextAnnounced, type NavState } from '@shared/navigation';
 import type { RouteResult } from '@shared/types';
 import { compassName, formatDistance, formatDuration, formatSpeed } from '@shared/geo';
 import { STEP_ICONS } from '@shared/stepIcons';
@@ -55,7 +55,7 @@ export default function NavPanel({ route, nav, destination, speedKmh, heading, g
   // alleen aangekomen als je ook echt op de route bent: ver ernaast valt je positie op het eindpunt
   const arrived = !!nav && !off && nav.remaining < ARRIVED;
   const leg = route?.access?.end;
-  const then = route && nav && next && !off && !arrived ? route.steps[route.steps.indexOf(next) + 1] : undefined;
+  const then = route && nav && next && !off && !arrived ? nextAnnounced(route, next) : undefined;
   return (
     <>
       <View style={[st.top, { top }]} accessibilityLiveRegion="polite">

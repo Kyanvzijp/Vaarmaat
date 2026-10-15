@@ -91,6 +91,11 @@ export interface RouteStep {
   point: LatLng;
   /** index in route.coords */
   idx: number;
+  /**
+   * Stille stap: staat in de stappenlijst, maar is geen instructie tijdens het varen (je hoeft niets te doen),
+   * bijvoorbeeld een vaste brug met ruim voldoende hoogte. Zie NAV-01 in docs/VERBETERPLAN.md.
+   */
+  quiet?: true;
 }
 
 /** Stuk over land tussen het gekozen punt en het water (lopen, auto of ov) */
